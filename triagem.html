@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#b30000">
+  <title>COB 193 - Triagem e Despacho Rápido</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E">
+
+  <!-- Tema aplicado ANTES do 1º paint (mesma chave do index.html) -->
+  <script>
+    (function(){
+      try {
+        const saved = localStorage.getItem('cbmgo193.theme');
+        if (saved === 'light') {
+          /* usuário escolheu claro */
+        } else if (saved === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          /* default do app de triagem: escuro (ambiente de COB) */
+          document.documentElement.classList.add('dark');
+        }
+      } catch(_) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script> tailwind.config = { darkMode: 'class' } </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <style>
+    @media print {
+      html, body { background: #fff !important; }
+      body * { visibility: hidden; }
+      #area-relatorio, #area-relatorio * {
+        visibility: visible;
+        color: #000 !important;
+        background-color: #fff !important;
+      }
+      #area-relatorio { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: none !important; }
+      .no-print { display: none !important; }
+    }
+    @keyframes slideInToast { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast-cobom { animation: slideInToast .25s ease-out; }
+  </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen pb-20 lg:pb-8 font-sans transition-colors duration-200 select-none">
+
+  <!-- Cabeçalho -->
+  <header class="bg-red-700 dark:bg-red-900 text-white shadow-lg sticky top-0 z-40 no-print">
+
+    <!-- ★ Barra de apps (troca entre index.html e triagem.html) -->
+    <div class="bg-red-900 dark:bg-red-950 border-b border-red-800 dark:border-red-900">
+      <div class="max-w-7xl mx-auto px-3 py-1.5 flex items-center justify-between gap-2">
+        <nav class="flex gap-1 overflow-x-auto" aria-label="Trocar aplicativo">
+          <a href="./index.html"
+             class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-950/60 text-red-100 hover:bg-red-950 whitespace-nowrap transition">
+            📋 Relatório 193
+          </a>
+          <a href="./triagem.html" aria-current="page"
+             class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white text-red-700 whitespace-nowrap shadow">
+            🚑 Triagem
+          </a>
+        </nav>
+        <button id="installBtnTriagem" type="button"
+                class="px-2 py-1 rounded-md bg-red-950/60 hover:bg-red-950 text-[11px] font-bold whitespace-nowrap transition"
+                title="Instalar aplicativo" hidden>
+          📲 Instalar
+        </button>
+      </div>
+    </div>
+
+    <!-- Conteúdo original do header -->
+    <div class="max-w-7xl mx-auto px-3 py-2.5 flex flex-wrap justify-between items-center gap-2">
+      <div class="flex items-center space-x-2.5">
+        <span class="text-2xl md:text-3xl">🚒</span>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-base md:text-xl font-black tracking-wider uppercase">COB 193</h1>
+            <span id="status-conexao" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+              ⏳ Conectando...
+            </span>
+            <span id="timer-triagem" class="hidden text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-400 text-slate-900"></span>
+          </div>
+          <p class="text-[11px] text-red-200" id="info-cache">Sincronizando banco...</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pt-1 sm:pt-0">
+        <button onclick="alternarAba('triagem')" id="tab-triagem" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-white text-red-700 shadow whitespace-nowrap">
+          🎧 Triagem Rápida
+        </button>
+        <button onclick="alternarAba('viaturas')" id="tab-viaturas" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap">
+          🚒 Viaturas & Guarnição
+        </button>
+        <button onclick="alternarAba('cadastros')" id="tab-cadastros" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap">
+          ⚙️ Banco (<span id="badge-total-banco">0</span>)
+        </button>
+        <button onclick="sincronizarComSupabase(true)" class="p-2 rounded-lg text-xs font-bold bg-red-800 hover:bg-red-950 text-white" title="Sincronizar com Supabase">
+          🔄
+        </button>
+        <button onclick="alternarTema()" id="btn-tema" class="p-2 rounded-lg bg-red-800 hover:bg-red-950 text-white text-xs" title="Alternar tema">
+          <span id="icone-tema">🌙</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-3 md:p-5">
+
+    <!-- ALERTA GLOBAL RED FLAG -->
+    <div id="alerta-red-flag" class="hidden mb-4 bg-red-600 text-white p-3.5 rounded-xl shadow-lg border-2 border-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-pulse no-print">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl">🚨</span>
+        <div>
+          <h2 class="font-black text-xs md:text-sm uppercase tracking-wide">Gatilho Red Flag — Despacho Imediato!</h2>
+          <p id="texto-red-flag" class="text-xs text-red-100 font-semibold"></p>
+        </div>
+      </div>
+      <span class="text-[11px] font-black bg-white text-red-700 px-3 py-1 rounded-full uppercase">Prioridade Máxima</span>
+    </div>
+
+    <!-- ================= ABA 1: TRIAGEM ================= -->
+    <section id="view-triagem" class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+      <div class="lg:col-span-7 space-y-4 no-print">
+
+        <!-- PASSO 1: SINTOMAS -->
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-2 border-red-500/40 dark:border-red-500/30">
+          <div class="flex flex-wrap justify-between items-center border-b dark:border-slate-700 pb-2 mb-3 gap-2">
+            <div>
+              <h2 class="text-sm md:text-base font-black text-red-600 dark:text-red-400 uppercase">1. Triagem de Sintomas / Situação</h2>
+              <p class="text-[11px] text-slate-400">Digite 2 letras ou selecione a natureza (os sintomas já usados somem da lista).</p>
+            </div>
+            <button onclick="limparChamado()" class="text-xs bg-red-100 dark:bg-red-950 hover:bg-red-200 text-red-700 dark:text-red-300 px-3 py-1.5 rounded-lg font-black transition">
+              🗑️ Limpar Tudo (F4)
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mb-3">
+            <button type="button" onclick="selecionarNaturezaRapida('TODAS')" id="btn-nat-TODAS" class="btn-natureza py-2 px-2 rounded-lg text-xs font-black bg-red-600 text-white shadow">📋 TODAS</button>
+            <button type="button" onclick="selecionarNaturezaRapida('CLINICA')" id="btn-nat-CLINICA" class="btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">🚑 CLÍNICA</button>
+            <button type="button" onclick="selecionarNaturezaRapida('TRAUMA')" id="btn-nat-TRAUMA" class="btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">💥 TRAUMA</button>
+            <button type="button" onclick="selecionarNaturezaRapida('INCENDIO')" id="btn-nat-INCENDIO" class="btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">🔥 INCÊNDIO</button>
+            <button type="button" onclick="selecionarNaturezaRapida('SALVAMENTO')" id="btn-nat-SALVAMENTO" class="btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 col-span-2 sm:col-span-1">🛟 SALVAMENTO</button>
+          </div>
+
+          <div class="relative mb-3">
+            <input
+              type="text"
+              id="input-busca-sintoma"
+              onfocus="mostrarListaSugestoes()"
+              oninput="filtrarSugestoesSintomas()"
+              onkeydown="atalhoEnterSintoma(event)"
+              placeholder="Digite o sintoma (ex: dor, resp, sangue...) e aperte Enter..."
+              autocomplete="off"
+              class="w-full border-2 border-red-400 dark:border-red-500 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-red-600 outline-none font-semibold"
+            >
+            <ul id="dropdown-sugestoes" class="hidden absolute z-30 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg shadow-xl divide-y dark:divide-slate-600 text-sm"></ul>
+          </div>
+
+          <div>
+            <span class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">Sintomas Confirmados na Ligação:</span>
+            <div id="tags-sintomas-selecionados" class="flex flex-wrap gap-2 min-h-[38px] p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
+              <span class="text-xs text-slate-400 italic self-center">Nenhum sintoma adicionado ainda.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASSO 2: ENDEREÇO & VÍTIMA -->
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
+          <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2">
+            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">2. Endereço & Vítima (Ditado por Voz 🎤)</h2>
+            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">Toque em 🎤 para falar o endereço</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">📍 Endereço / Ponto de Referência</label>
+              <div class="flex space-x-1.5">
+                <input type="text" id="solicitante-end" oninput="atualizarRelatorio()" placeholder="Digite ou clique em Falar..." class="w-full border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm font-semibold outline-none">
+                <button type="button" onclick="ditarPorVoz('solicitante-end', this)" class="bg-red-600 hover:bg-red-700 text-white px-3.5 rounded-lg font-bold text-xs flex items-center space-x-1 shrink-0 shadow" title="Falar endereço">
+                  <span>🎤</span><span>Falar</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Telefone (WhatsApp)</label>
+              <input type="tel" id="solicitante-tel" oninput="atualizarRelatorio()" placeholder="64999990000" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2 text-sm outline-none">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Solicitante</label>
+              <input type="text" id="solicitante-nome" oninput="atualizarRelatorio()" placeholder="Nome" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2 text-sm outline-none">
+            </div>
+          </div>
+
+          <div class="p-2.5 bg-blue-50 dark:bg-slate-900/80 border border-blue-200 dark:border-slate-700 rounded-xl flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" onclick="pedirLocalizacaoWhatsApp()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg">
+                📲 Pedir GPS no Zap
+              </button>
+              <button type="button" onclick="gerarLinkMapsPeloEndereco()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg">
+                🗺️ Gerar Maps pelo Endereço
+              </button>
+            </div>
+            <input type="url" id="solicitante-link-gps" oninput="atualizarRelatorio()" placeholder="Cole aqui o link GPS..." class="w-full border border-blue-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg p-1.5 text-xs outline-none">
+          </div>
+
+          <div class="pt-2 border-t dark:border-slate-700 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Faixa Etária (Clique):</span>
+              <div class="flex flex-wrap gap-1">
+                <button type="button" onclick="setIdadeRapida('Bebê')" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-bold">👶 Bebê</button>
+                <button type="button" onclick="setIdadeRapida('Criança')" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-bold">🧒 Criança</button>
+                <button type="button" onclick="setIdadeRapida('Adulto')" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-bold">🧑 Adulto</button>
+                <button type="button" onclick="setIdadeRapida('Idoso')" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-bold">🧓 Idoso</button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input type="text" id="vitima-idade" oninput="atualizarRelatorio()" placeholder="Idade (ex: Adulto)" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2 text-xs font-semibold outline-none">
+              <select id="vitima-peso" onchange="atualizarRelatorio()" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2 text-xs font-semibold outline-none">
+                <option value="Peso não inf.">Faixa de Peso</option>
+                <option value="Até 20 kg (Infantil)">Até 20 kg (Infantil)</option>
+                <option value="20 a 40 kg">20 a 40 kg</option>
+                <option value="40 a 60 kg">40 a 60 kg</option>
+                <option value="60 a 80 kg">60 a 80 kg</option>
+                <option value="80 a 100 kg">80 a 100 kg</option>
+                <option value="100 a 120 kg">100 a 120 kg</option>
+                <option value="120 a 140 kg">120 a 140 kg</option>
+                <option value="Acima de 140 kg (Obeso)">Acima de 140 kg (Obeso)</option>
+              </select>
+              <div class="flex items-center space-x-1">
+                <span class="text-xs font-bold text-slate-500">Vítimas:</span>
+                <button type="button" onclick="alterarQtdVitimas(-1)" class="bg-slate-200 dark:bg-slate-700 px-2.5 py-1.5 rounded font-black text-xs">-</button>
+                <input type="number" id="vitima-qtd" value="1" min="1" oninput="atualizarRelatorio()" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs font-black text-center outline-none">
+                <button type="button" onclick="alterarQtdVitimas(1)" class="bg-slate-200 dark:bg-slate-700 px-2.5 py-1.5 rounded font-black text-xs">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASSO 3: HIPÓTESES -->
+        <div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+          <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-3">
+            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">3. Hipóteses Diagnósticas & Script de Telefone</h2>
+            <span class="text-[10px] bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded font-semibold">🔒 Dicas para ler ao solicitante</span>
+          </div>
+          <div id="resultados-diagnosticos" class="space-y-3">
+            <p class="text-sm text-slate-400 italic">Selecione os sintomas no passo 1 para gerar o diagnóstico...</p>
+          </div>
+        </div>
+
+        <!-- PASSO 4: VIATURAS -->
+        <div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+          <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-3">
+            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">4. Empenhar Viaturas & Guarnição</h2>
+            <button onclick="alternarAba('viaturas')" class="text-xs text-red-600 dark:text-red-400 font-bold hover:underline">⚙️ Escalar Militares</button>
+          </div>
+          <div id="selecao-viaturas-triagem" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs"></div>
+        </div>
+
+      </div>
+
+      <!-- Relatório + Disparo -->
+      <div class="lg:col-span-5" id="secao-despacho-mobile">
+        <div class="sticky top-16 space-y-4">
+
+          <div class="bg-slate-800 dark:bg-slate-950 p-3 rounded-xl flex flex-wrap gap-2 justify-between items-center no-print border dark:border-slate-800">
+            <span class="text-white text-xs font-bold uppercase tracking-wider px-1">📋 Despacho:</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="copiarRelatorio()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition">📑 Copiar (F2)</button>
+              <button onclick="enviarGrupoOperacoesConjuntas()" class="bg-green-700 hover:bg-green-800 text-white text-xs font-bold px-3 py-2 rounded-lg transition">📢 Grupo Op. Conjuntas</button>
+              <button onclick="baixarPDF()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-2.5 py-2 rounded-lg transition">📄 PDF</button>
+              <button onclick="window.print()" class="bg-slate-600 hover:bg-slate-700 text-white text-xs font-bold px-2.5 py-2 rounded-lg transition">🖨️</button>
+            </div>
+          </div>
+
+          <div id="painel-whatsapp-militares" class="hidden bg-emerald-950/40 border border-emerald-700/60 p-3.5 rounded-xl space-y-2 no-print">
+            <h4 class="text-xs font-bold uppercase text-emerald-400">📲 1 Clique — Enviar p/ Militar Escalado:</h4>
+            <div id="botoes-whatsapp-militares" class="flex flex-wrap gap-2"></div>
+          </div>
+
+          <div id="area-relatorio" class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-md border-t-8 border-red-700 space-y-3 text-sm">
+            <div class="flex justify-between items-start border-b dark:border-slate-700 pb-2.5">
+              <div>
+                <h3 class="font-black text-base uppercase text-slate-900 dark:text-white">Ficha de Despacho 193</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Corpo de Bombeiros Militar - COB</p>
+                <p class="text-[11px] font-bold text-red-700 dark:text-red-400 mt-0.5">
+                  Protocolo: <span id="rel-protocolo">—</span>
+                </p>
+              </div>
+              <span id="rel-datahora" class="text-[11px] font-mono bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded"></span>
+            </div>
+
+            <div class="space-y-1 text-xs">
+              <p><strong>Endereço:</strong> <span id="rel-end" class="font-bold text-red-600 dark:text-red-400">Não informado</span></p>
+              <p id="rel-linha-gps" class="hidden"><strong>📍 Mapa GPS:</strong> <a id="rel-link-gps" href="#" target="_blank" class="text-blue-600 dark:text-blue-400 underline break-all"></a></p>
+              <p><strong>Solicitante:</strong> <span id="rel-nome">Não inf.</span> | <strong>Tel:</strong> <span id="rel-tel">Não inf.</span></p>
+              <p><strong>Natureza:</strong> <span id="rel-natureza">TODAS</span></p>
+              <p><strong>Vítima(s):</strong> <span id="rel-qtd">1</span> | <strong>Idade:</strong> <span id="rel-idade">Não inf.</span> | <strong>Peso:</strong> <span id="rel-peso">Não inf.</span></p>
+            </div>
+
+            <div>
+              <h4 class="font-bold uppercase text-[11px] text-slate-500 dark:text-slate-400 border-b dark:border-slate-700 pb-1 mb-1">Sintomas / Quadro no Local:</h4>
+              <ul id="rel-lista-sintomas" class="list-disc list-inside space-y-0.5 text-xs font-medium">
+                <li class="text-slate-400 italic">Nenhum sintoma selecionado</li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 class="font-bold uppercase text-[11px] text-slate-500 dark:text-slate-400 border-b dark:border-slate-700 pb-1 mb-1">Suspeita & Criticidade:</h4>
+              <div id="rel-lista-diagnosticos" class="space-y-1 text-xs">
+                <p class="text-slate-400 italic">Sem hipóteses calculadas</p>
+              </div>
+            </div>
+
+            <div>
+              <h4 class="font-bold uppercase text-[11px] text-slate-500 dark:text-slate-400 border-b dark:border-slate-700 pb-1 mb-1">Viaturas & Guarnição Empenhada:</h4>
+              <div id="rel-lista-viaturas" class="text-xs font-semibold text-red-700 dark:text-red-400">
+                Nenhuma viatura selecionada
+              </div>
+            </div>
+
+            <div class="no-print pt-1">
+              <div class="flex justify-between items-center mb-1">
+                <label class="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Observações:</label>
+                <button type="button" onclick="ditarPorVoz('obs-atendente', this)" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded font-bold">🎤 Falar Obs</button>
+              </div>
+              <textarea id="obs-atendente" oninput="atualizarRelatorio()" rows="2" placeholder="Detalhes extras..." class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-2 text-xs outline-none"></textarea>
+            </div>
+
+            <div id="rel-obs-container" class="hidden">
+              <h4 class="font-bold uppercase text-[11px] text-slate-500 dark:text-slate-400 border-b dark:border-slate-700 pb-1 mb-1">Observações do Despachante:</h4>
+              <p id="rel-obs" class="text-xs whitespace-pre-line"></p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ABA 2: VIATURAS ================= -->
+    <section id="view-viaturas" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-4 space-y-6">
+          <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <h2 class="text-base font-bold border-b dark:border-slate-700 pb-2 mb-4">🚒 Cadastrar Viatura (Supabase)</h2>
+            <form onsubmit="salvarViatura(event)" class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Unidade (OBM)</label>
+                <input type="text" id="cad-vtr-unidade" required value="10º BBM" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm font-bold">
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Prefixo da Viatura</label>
+                <input type="text" id="cad-vtr-prefixo" required placeholder="Ex: UR-101, ABTS-10" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Tipo</label>
+                <select id="cad-vtr-tipo" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+                  <option value="Unidade de Resgate (UR)">🚑 Unidade de Resgate (UR)</option>
+                  <option value="Auto Bomba Tanque e Salvamento (ABTS)">🚒 Auto Bomba Tanque (ABTS)</option>
+                  <option value="Auto Salvamento Avançado (ASA)">🛟 Auto Salvamento (ASA)</option>
+                </select>
+              </div>
+              <button type="submit" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg transition text-sm">
+                + Salvar Viatura no Banco
+              </button>
+            </form>
+          </div>
+
+          <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
+            <h3 class="text-sm font-bold border-b dark:border-slate-700 pb-2">🧹 Gerenciar Turno / Plantão</h3>
+            <button onclick="limparTodasGuarnicoes()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-lg text-xs transition">
+              🧹 Limpar Todas as Guarnições do Plantão
+            </button>
+          </div>
+        </div>
+
+        <div class="lg:col-span-8 space-y-4">
+          <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <div class="border-b dark:border-slate-700 pb-3 mb-4">
+              <h2 class="text-base font-bold">👥 Viaturas Cadastradas & Guarnição do Dia</h2>
+            </div>
+            <div id="lista-cards-viaturas" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ABA 3: BANCO ================= -->
+    <section id="view-cadastros" class="hidden grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div class="md:col-span-5 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 h-fit">
+        <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
+          <h2 id="titulo-form-sintoma" class="text-base font-bold">➕ 1. Cadastrar Sintoma</h2>
+          <button type="button" id="btn-cancelar-sintoma" onclick="cancelarEdicaoSintoma()" class="hidden text-xs text-red-500 hover:underline font-bold">Cancelar</button>
+        </div>
+
+        <form id="form-sintoma" onsubmit="salvarSintoma(event)" class="space-y-4">
+          <input type="hidden" id="edit-sintoma-id" value="">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Categoria</label>
+            <select id="cad-sintoma-cat" required class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+              <option value="CLINICA">Emergência Clínica</option>
+              <option value="TRAUMA">Trauma / Acidente</option>
+              <option value="INCENDIO">Incêndio</option>
+              <option value="SALVAMENTO">Salvamento / Resgate</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Nome do Sintoma ou Situação</label>
+            <input type="text" id="cad-sintoma-nome" required placeholder="Ex: Vítima inconsciente..." class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+          </div>
+
+          <label class="flex items-center space-x-2.5 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 cursor-pointer">
+            <input type="checkbox" id="cad-sintoma-redflag" class="w-4 h-4 text-red-600 rounded">
+            <span class="block text-xs font-black uppercase text-red-700 dark:text-red-300">🚨 Sintoma "Red Flag" (Despacho Imediato)</span>
+          </label>
+
+          <button type="submit" id="btn-submit-sintoma" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg transition text-sm">
+            Gravar Sintoma no Supabase
+          </button>
+        </form>
+
+        <div class="mt-6">
+          <h3 class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Sintomas no Banco (<span id="count-sintomas">0</span>)</h3>
+          <ul id="lista-admin-sintomas" class="max-h-80 overflow-y-auto divide-y dark:divide-slate-700 border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></ul>
+        </div>
+      </div>
+
+      <div class="md:col-span-7 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-6">
+        <div>
+          <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
+            <h2 id="titulo-form-diag" class="text-base font-bold">🩺 2. Cadastrar Diagnóstico</h2>
+            <button type="button" id="btn-cancelar-diag" onclick="cancelarEdicaoDiagnostico()" class="hidden text-xs text-red-500 hover:underline font-bold">Cancelar</button>
+          </div>
+
+          <form id="form-diagnostico" onsubmit="salvarDiagnostico(event)" class="space-y-4">
+            <input type="hidden" id="edit-diag-id" value="">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="sm:col-span-2">
+                <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Título do Diagnóstico</label>
+                <input type="text" id="cad-diag-titulo" required placeholder="Ex: Parada Cardiorrespiratória" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Criticidade</label>
+                <select id="cad-diag-crit" required class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm font-bold">
+                  <option value="CRITICO">🔴 CRÍTICO</option>
+                  <option value="GRAVE">🟠 GRAVE</option>
+                  <option value="INTERMEDIARIO">🟡 INTERMEDIÁRIO</option>
+                  <option value="LEVE">🟢 LEVE</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Descrição Técnica</label>
+              <textarea id="cad-diag-desc" rows="2" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm"></textarea>
+            </div>
+
+            <div class="bg-amber-50 dark:bg-amber-950/40 p-3 rounded-lg border border-amber-300 dark:border-amber-700">
+              <label class="block text-xs font-bold uppercase text-amber-900 dark:text-amber-300 mb-1">🗣️ Dicas para o Cobista instruir pelo Telefone</label>
+              <textarea id="cad-diag-dicas" required rows="3" class="w-full border border-amber-300 dark:border-amber-700 rounded-lg p-2.5 text-sm bg-white dark:bg-slate-800"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Vincular Sintomas:</label>
+              <div id="checkboxes-sintomas-cadastro" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto border dark:border-slate-700 rounded-lg p-3 bg-slate-50 dark:bg-slate-900 text-xs"></div>
+            </div>
+
+            <button type="submit" id="btn-submit-diag" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-3 rounded-lg shadow transition text-sm">
+              Gravar Diagnóstico no Supabase
+            </button>
+          </form>
+        </div>
+
+        <div class="border-t dark:border-slate-700 pt-4">
+          <h3 class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Diagnósticos no Banco (<span id="count-diagnosticos">0</span>)</h3>
+          <ul id="lista-admin-diagnosticos" class="max-h-64 overflow-y-auto divide-y dark:divide-slate-700 border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></ul>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BARRA INFERIOR CELULAR -->
+  <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900 text-white p-2.5 border-t border-slate-700 flex justify-around items-center z-50 no-print shadow-2xl">
+    <button onclick="copiarRelatorio()" class="flex items-center space-x-1 bg-emerald-600 px-3 py-2 rounded-lg text-xs font-bold"><span>📑 Copiar</span></button>
+    <button onclick="enviarGrupoOperacoesConjuntas()" class="flex items-center space-x-1 bg-green-700 px-3 py-2 rounded-lg text-xs font-bold"><span>📢 Grupo Op.</span></button>
+    <button onclick="document.getElementById('secao-despacho-mobile').scrollIntoView({behavior: 'smooth'})" class="flex items-center space-x-1 bg-red-700 px-3 py-2 rounded-lg text-xs font-bold"><span>📲 Ver Ficha / Zap</span></button>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. SUPABASE + ESTADO GLOBAL
+    // =========================================================================
+    const SUPABASE_URL = 'https://elakajrqhnpgvbeeuope.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_L_Ax840Q1hsGM3xdKHX0rQ_eW_ROare';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let bancoSintomas = [];
+    let bancoDiagnosticos = [];
+    let bancoViaturas = [];
+    let guarnicoesMemoria = JSON.parse(localStorage.getItem('cobom_guarnicoes_memoria') || '{}');
+
+    let naturezaSelecionada = 'TODAS';
+    let sintomasSelecionadosIds = [];
+    let viaturasEmpenhadasIds = [];
+    let sugestoesAtuais = [];
+
+    let protocoloAtual = null;
+    let timerInicio = null;
+    let timerInterval = null;
+
+    // =========================================================================
+    // 2. UTILITÁRIOS (Toast, Timer, Protocolo, Telefone)
+    // =========================================================================
+    function mostrarToast(msg, tipo = 'info') {
+      const cores = {
+        info:    'bg-slate-800 border-slate-600',
+        sucesso: 'bg-emerald-600 border-emerald-400',
+        erro:    'bg-red-600 border-red-400',
+        aviso:   'bg-amber-500 border-amber-300 text-slate-900'
+      };
+      const toast = document.createElement('div');
+      toast.className = `toast-cobom fixed top-20 right-4 z-[100] ${cores[tipo]} text-white px-4 py-3 rounded-lg shadow-2xl font-bold text-sm max-w-xs border-l-4`;
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transition = 'opacity .3s, transform .3s';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(120%)';
+        setTimeout(() => toast.remove(), 320);
+      }, 2800);
+    }
+
+    function formatarTel(tel) {
+      const limpo = (tel || '').replace(/\D/g, '');
+      if (limpo.length === 11) return limpo.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+      if (limpo.length === 10) return limpo.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+      return tel;
+    }
+
+    function gerarProtocolo() {
+      if (protocoloAtual) return protocoloAtual;
+      const d = new Date();
+      const dataKey = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      const seq = String((parseInt(localStorage.getItem('cobom_seq_' + dataKey) || '0') + 1)).padStart(3, '0');
+      localStorage.setItem('cobom_seq_' + dataKey, seq);
+      protocoloAtual = `193-${dataKey}-${seq}`;
+      const el = document.getElementById('rel-protocolo');
+      if (el) el.textContent = protocoloAtual;
+      return protocoloAtual;
+    }
+
+    function iniciarTimer() {
+      if (timerInicio) return;
+      timerInicio = Date.now();
+      const el = document.getElementById('timer-triagem');
+      if (el) el.classList.remove('hidden');
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        const el2 = document.getElementById('timer-triagem');
+        if (!el2 || !timerInicio) return;
+        const seg = Math.floor((Date.now() - timerInicio) / 1000);
+        const m = String(Math.floor(seg / 60)).padStart(2, '0');
+        const s = String(seg % 60).padStart(2, '0');
+        el2.textContent = `⏱️ ${m}:${s}`;
+      }, 1000);
+    }
+
+    function pararTimer() {
+      timerInicio = null;
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = null;
+      const el = document.getElementById('timer-triagem');
+      if (el) { el.classList.add('hidden'); el.textContent = ''; }
+    }
+
+    // =========================================================================
+    // 2.B TEMA — mesma chave do index.html
+    // =========================================================================
+    function atualizarIconeTema() {
+      const icon = document.getElementById('icone-tema');
+      if (!icon) return;
+      icon.textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+    }
+    function alternarTema() {
+      const html = document.documentElement;
+      html.classList.toggle('dark');
+      const modo = html.classList.contains('dark') ? 'dark' : 'light';
+      try { localStorage.setItem('cbmgo193.theme', modo); } catch(_){}
+      atualizarIconeTema();
+    }
+
+    // =========================================================================
+    // 2.C PWA — instalação + service worker
+    // =========================================================================
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('installBtnTriagem');
+    function isStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches ||
+             window.navigator.standalone === true;
+    }
+    function updateInstallUI() {
+      if (!installBtn) return;
+      installBtn.hidden = isStandalone();
+    }
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      updateInstallUI();
+    });
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      updateInstallUI();
+      mostrarToast('Aplicativo instalado! ✅', 'sucesso');
+    });
+    if (installBtn) {
+      installBtn.addEventListener('click', async () => {
+        if (isStandalone()) return;
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          try { await deferredPrompt.userChoice; } catch(_){}
+          deferredPrompt = null;
+          updateInstallUI();
+          return;
+        }
+        alert(
+          'Como instalar:\n\n' +
+          '• iPhone/iPad (Safari): Compartilhar  →  Adicionar à Tela de Início.\n' +
+          '• Android (Chrome): menu ⋮  →  Instalar app / Adicionar à tela inicial.\n' +
+          '• Desktop (Chrome/Edge): ícone de instalação na barra de endereços.'
+        );
+      });
+    }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => { /* silencioso */ });
+    }
+
+    // =========================================================================
+    // 3. INICIALIZAÇÃO
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Tema já foi aplicado no <head>. Só atualiza o ícone.
+      atualizarIconeTema();
+      updateInstallUI();
+
+      document.getElementById('rel-datahora').innerText = new Date().toLocaleString('pt-BR');
+
+      await sincronizarComSupabase(false);
+      atualizarRelatorio();
+
+      document.addEventListener('click', (e) => {
+        const box = document.getElementById('input-busca-sintoma');
+        const drop = document.getElementById('dropdown-sugestoes');
+        if (box && drop && !box.contains(e.target) && !drop.contains(e.target)) {
+          drop.classList.add('hidden');
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'F1') { e.preventDefault(); alternarAba('triagem'); }
+        if (e.key === 'F2') { e.preventDefault(); copiarRelatorio(); }
+        if (e.key === 'F4') { e.preventDefault(); limparChamado(); }
+      });
+    });
+
+    // =========================================================================
+    // 4. SYNC (paralelo + detecção real de erro)
+    // =========================================================================
+    async function sincronizarComSupabase(mostrarAlerta = false) {
+      const badge = document.getElementById('status-conexao');
+      const infoCache = document.getElementById('info-cache');
+
+      try {
+        badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-slate-900";
+        badge.innerText = "🔄 Sincronizando...";
+
+        const [resSintomas, resDiagnosticos, resViaturas] = await Promise.all([
+          supabaseClient.from('sintomas').select('*').order('nome'),
+          supabaseClient.from('diagnosticos').select('*, diagnostico_sintomas(sintoma_id)').order('titulo'),
+          supabaseClient.from('viaturas').select('*').order('unidade').order('prefixo')
+        ]);
+
+        const houveErro = resSintomas.error || resDiagnosticos.error || resViaturas.error;
+
+        if (resSintomas.error)     console.warn('sintomas:', resSintomas.error.message);
+        if (resDiagnosticos.error) console.warn('diagnosticos:', resDiagnosticos.error.message);
+        if (resViaturas.error)     console.warn('viaturas:', resViaturas.error.message);
+
+        if (houveErro) {
+          carregarDoCacheLocal('Cache (falha parcial)');
+          badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-slate-900";
+          badge.innerText = "🟡 Offline (cache)";
+          if (mostrarAlerta) mostrarToast('Sync com falha. Usando cache local.', 'aviso');
+          return;
+        }
+
+        bancoSintomas = (resSintomas.data || []).sort((a, b) => (b.red_flag ? 1 : 0) - (a.red_flag ? 1 : 0));
+        bancoDiagnosticos = (resDiagnosticos.data || []).map(d => ({
+          ...d,
+          sintomas_ids: (d.diagnostico_sintomas || []).map(ds => ds.sintoma_id)
+        }));
+        bancoViaturas = resViaturas.data || [];
+
+        localStorage.setItem('cobom_cache_sintomas', JSON.stringify(bancoSintomas));
+        localStorage.setItem('cobom_cache_diagnosticos', JSON.stringify(bancoDiagnosticos));
+        localStorage.setItem('cobom_cache_viaturas', JSON.stringify(bancoViaturas));
+
+        const agora = new Date().toLocaleString('pt-BR');
+        localStorage.setItem('cobom_cache_data', agora);
+
+        badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white";
+        badge.innerText = `🟢 Online (${bancoSintomas.length} sint. / ${bancoDiagnosticos.length} diag.)`;
+        infoCache.innerText = `Sincronizado: ${agora}`;
+        document.getElementById('badge-total-banco').innerText = bancoSintomas.length;
+
+        const antes = sintomasSelecionadosIds.length;
+        sintomasSelecionadosIds = sintomasSelecionadosIds.filter(id => bancoSintomas.some(s => s.id === id));
+        if (antes !== sintomasSelecionadosIds.length) {
+          mostrarToast('Alguns sintomas selecionados foram removidos do banco.', 'aviso');
+        }
+        viaturasEmpenhadasIds = viaturasEmpenhadasIds.filter(id => bancoViaturas.some(v => v.id === id));
+
+        renderizarTudo();
+        if (mostrarAlerta) mostrarToast(`Sincronizado! ${bancoSintomas.length} sintomas, ${bancoDiagnosticos.length} diagnósticos, ${bancoViaturas.length} viaturas.`, 'sucesso');
+      } catch (err) {
+        console.error(err);
+        carregarDoCacheLocal('Modo Offline (Cache)');
+        badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white";
+        badge.innerText = "🔴 Offline (cache)";
+        if (mostrarAlerta) mostrarToast('Sem conexão. Usando cache local.', 'erro');
+      }
+    }
+
+    function carregarDoCacheLocal(motivo) {
+      bancoSintomas = JSON.parse(localStorage.getItem('cobom_cache_sintomas') || '[]');
+      bancoDiagnosticos = JSON.parse(localStorage.getItem('cobom_cache_diagnosticos') || '[]');
+      bancoViaturas = JSON.parse(localStorage.getItem('cobom_cache_viaturas') || '[]');
+      document.getElementById('badge-total-banco').innerText = bancoSintomas.length;
+      const infoCache = document.getElementById('info-cache');
+      if (infoCache) infoCache.innerText = motivo || 'Cache local';
+      renderizarTudo();
+    }
+
+    function renderizarTudo() {
+      renderizarAdmin();
+      renderizarViaturasEGuarnicao();
+      renderizarSelecaoViaturasTriagem();
+      renderizarTagsSintomas();
+      processarTriagem();
+    }
+
+    // =========================================================================
+    // 5. VOZ
+    // =========================================================================
+    function ditarPorVoz(inputId, btnElement) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return mostrarToast('Navegador não suporta reconhecimento de voz.', 'erro');
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'pt-BR';
+      recognition.interimResults = false;
+
+      const originalText = btnElement.innerHTML;
+      btnElement.innerHTML = '🔴 Ouvindo...';
+      btnElement.classList.add('animate-pulse');
+
+      recognition.onresult = (event) => {
+        const transcricao = event.results[0][0].transcript;
+        const campo = document.getElementById(inputId);
+        campo.value = campo.value ? `${campo.value}, ${transcricao}` : transcricao;
+        atualizarRelatorio();
+      };
+
+      recognition.onend = () => { btnElement.innerHTML = originalText; btnElement.classList.remove('animate-pulse'); };
+      recognition.onerror = () => { btnElement.innerHTML = originalText; btnElement.classList.remove('animate-pulse'); };
+      recognition.start();
+    }
+
+    // =========================================================================
+    // 6. AUTOCOMPLETE
+    // =========================================================================
+    function selecionarNaturezaRapida(cat) {
+      naturezaSelecionada = cat;
+      ['TODAS', 'CLINICA', 'TRAUMA', 'INCENDIO', 'SALVAMENTO'].forEach(c => {
+        const btn = document.getElementById(`btn-nat-${c}`);
+        if (!btn) return;
+        if (c === cat) {
+          btn.className = "btn-natureza py-2 px-2 rounded-lg text-xs font-black bg-red-600 text-white shadow";
+        } else {
+          btn.className = "btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200";
+        }
+      });
+      filtrarSugestoesSintomas();
+      atualizarRelatorio();
+    }
+
+    function mostrarListaSugestoes() {
+      filtrarSugestoesSintomas();
+      document.getElementById('dropdown-sugestoes').classList.remove('hidden');
+    }
+
+    function filtrarSugestoesSintomas() {
+      const termo = (document.getElementById('input-busca-sintoma').value || '').toLowerCase().trim();
+      const dropdown = document.getElementById('dropdown-sugestoes');
+
+      sugestoesAtuais = bancoSintomas.filter(s => {
+        const bateCat = naturezaSelecionada === 'TODAS' || s.categoria === naturezaSelecionada;
+        const naoSelecionado = !sintomasSelecionadosIds.includes(s.id);
+        const bateTermo = !termo || s.nome.toLowerCase().includes(termo) || s.categoria.toLowerCase().includes(termo);
+        return bateCat && naoSelecionado && bateTermo;
+      });
+
+      if (sugestoesAtuais.length === 0) {
+        if (termo.length >= 3) {
+          const catPadrao = naturezaSelecionada === 'TODAS' ? 'CLINICA' : naturezaSelecionada;
+          dropdown.innerHTML = `
+            <li>
+              <button onclick="irParaCadastroDeSintoma('${termo.replace(/'/g, "\\'")}', '${catPadrao}')" class="w-full text-left p-3 hover:bg-emerald-50 dark:hover:bg-slate-600 cursor-pointer flex items-center gap-2 transition">
+                <span class="text-lg">➕</span>
+                <div>
+                  <div class="font-bold text-xs text-emerald-700 dark:text-emerald-400">Cadastrar novo sintoma</div>
+                  <div class="text-[11px] text-slate-500">"${termo}" em [${catPadrao}]</div>
+                </div>
+              </button>
+            </li>`;
+        } else {
+          dropdown.innerHTML = `<li class="p-3 text-xs text-slate-400 italic">Nenhum sintoma encontrado. Digite 3+ letras para cadastrar.</li>`;
+        }
+      } else {
+        dropdown.innerHTML = sugestoesAtuais.map((s, idx) => `
+          <li onclick="adicionarSintomaTag('${s.id}')" class="p-2.5 hover:bg-red-50 dark:hover:bg-slate-600 cursor-pointer flex justify-between items-center transition ${idx === 0 ? 'bg-red-50/50 dark:bg-slate-600/40' : ''}">
+            <div>
+              ${s.red_flag ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded mr-1">🚨 RED FLAG</span>' : ''}
+              <strong class="text-xs text-red-600 dark:text-red-400">[${s.categoria}]</strong>
+              <span class="${s.red_flag ? 'font-bold text-red-700 dark:text-red-300' : ''}">${s.nome}</span>
+            </div>
+            <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">${idx === 0 ? '↵ Enter' : '+'}</span>
+          </li>
+        `).join('');
+      }
+      dropdown.classList.remove('hidden');
+    }
+
+    function irParaCadastroDeSintoma(nome, categoria) {
+      document.getElementById('dropdown-sugestoes').classList.add('hidden');
+      alternarAba('cadastros');
+      const catSelect = document.getElementById('cad-sintoma-cat');
+      if (catSelect) catSelect.value = categoria;
+      const nomeInput = document.getElementById('cad-sintoma-nome');
+      if (nomeInput) {
+        nomeInput.value = nome.charAt(0).toUpperCase() + nome.slice(1);
+        nomeInput.focus();
+      }
+      mostrarToast('Preencha o sintoma e clique em "Gravar".', 'info');
+    }
+
+    function atalhoEnterSintoma(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (sugestoesAtuais.length > 0) adicionarSintomaTag(sugestoesAtuais[0].id);
+      }
+    }
+
+    function adicionarSintomaTag(id) {
+      if (!sintomasSelecionadosIds.includes(id)) sintomasSelecionadosIds.push(id);
+      iniciarTimer();
+      if (!protocoloAtual) gerarProtocolo();
+      const input = document.getElementById('input-busca-sintoma');
+      input.value = '';
+      input.focus();
+      filtrarSugestoesSintomas();
+      renderizarTagsSintomas();
+      processarTriagem();
+    }
+
+    function removerSintomaTag(id) {
+      sintomasSelecionadosIds = sintomasSelecionadosIds.filter(item => item !== id);
+      renderizarTagsSintomas();
+      filtrarSugestoesSintomas();
+      processarTriagem();
+      if (sintomasSelecionadosIds.length === 0) pararTimer();
+    }
+
+    function renderizarTagsSintomas() {
+      const container = document.getElementById('tags-sintomas-selecionados');
+      if (!container) return;
+      if (sintomasSelecionadosIds.length === 0) {
+        container.innerHTML = `<span class="text-xs text-slate-400 italic self-center">Nenhum sintoma adicionado ainda.</span>`;
+        return;
+      }
+      container.innerHTML = sintomasSelecionadosIds.map(id => {
+        const sint = bancoSintomas.find(s => s.id === id);
+        if (!sint) return '';
+        const estilo = sint.red_flag ? 'bg-red-700 ring-2 ring-amber-400 text-white' : 'bg-slate-700 text-white';
+        return `
+          <span class="inline-flex items-center space-x-2 ${estilo} text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
+            <span>${sint.red_flag ? '🚨 ' : ''}[${sint.categoria}] ${sint.nome}</span>
+            <button onclick="removerSintomaTag('${sint.id}')" class="hover:text-red-200 font-black">✕</button>
+          </span>
+        `;
+      }).join('');
+    }
+
+    function setIdadeRapida(valor) {
+      document.getElementById('vitima-idade').value = valor;
+      atualizarRelatorio();
+    }
+
+    function alterarQtdVitimas(delta) {
+      const input = document.getElementById('vitima-qtd');
+      const novo = Math.max(1, (parseInt(input.value) || 1) + delta);
+      input.value = novo;
+      atualizarRelatorio();
+    }
+
+    // =========================================================================
+    // 7. MOTOR DE DIAGNÓSTICOS
+    // =========================================================================
+    function processarTriagem() {
+      const containerDiag = document.getElementById('resultados-diagnosticos');
+      const alertaRedFlag = document.getElementById('alerta-red-flag');
+      const textoRedFlag = document.getElementById('texto-red-flag');
+
+      const objetosSintomas = sintomasSelecionadosIds.map(id => bancoSintomas.find(s => s.id === id)).filter(Boolean);
+      const redFlagsAtivos = objetosSintomas.filter(s => s.red_flag);
+
+      if (redFlagsAtivos.length > 0) {
+        alertaRedFlag.classList.remove('hidden');
+        textoRedFlag.innerText = `Sintoma(s) crítico(s): ${redFlagsAtivos.map(r => r.nome).join(', ')}`;
+      } else {
+        alertaRedFlag.classList.add('hidden');
+      }
+
+      if (sintomasSelecionadosIds.length === 0) {
+        containerDiag.innerHTML = '<p class="text-sm text-slate-400 italic">Selecione os sintomas para ver diagnósticos e instruções...</p>';
+        atualizarRelatorio([], []);
+        return;
+      }
+
+      const pesosCriticidade = { 'CRITICO': 4, 'GRAVE': 3, 'INTERMEDIARIO': 2, 'LEVE': 1 };
+
+      const diagnosticosEncontrados = bancoDiagnosticos
+        .map(diag => {
+          const sintomasEmComum = sintomasSelecionadosIds.filter(id => diag.sintomas_ids.includes(id));
+          const temRedFlagVinculado = redFlagsAtivos.some(rf => diag.sintomas_ids.includes(rf.id));
+          return {
+            ...diag,
+            matches: sintomasEmComum.length,
+            temRedFlagVinculado,
+            bateuTodosInformados: sintomasEmComum.length === sintomasSelecionadosIds.length
+          };
+        })
+        .filter(d => d.matches > 0)
+        .sort((a, b) => {
+          if (b.temRedFlagVinculado !== a.temRedFlagVinculado) return b.temRedFlagVinculado ? 1 : -1;
+          if (b.matches !== a.matches) return b.matches - a.matches;
+          return pesosCriticidade[b.criticidade] - pesosCriticidade[a.criticidade];
+        });
+
+      if (diagnosticosEncontrados.length === 0) {
+        containerDiag.innerHTML = '<p class="text-xs text-amber-500 font-semibold">Nenhum diagnóstico vinculado a estes sintomas. Verifique o cadastro no banco.</p>';
+      } else {
+        containerDiag.innerHTML = diagnosticosEncontrados.map(d => {
+          const badgeColors = {
+            'CRITICO': 'bg-red-600 text-white',
+            'GRAVE': 'bg-orange-500 text-white',
+            'INTERMEDIARIO': 'bg-amber-400 text-slate-900',
+            'LEVE': 'bg-emerald-500 text-white'
+          };
+          return `
+            <div class="border-l-4 ${d.temRedFlagVinculado || d.bateuTodosInformados ? 'border-red-600 bg-red-50/40 dark:bg-red-950/30' : 'border-slate-400'} p-3.5 rounded-lg border dark:border-slate-700 space-y-2">
+              <div class="flex justify-between items-start gap-2">
+                <div>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded ${badgeColors[d.criticidade]}">${d.criticidade}</span>
+                  <h3 class="font-bold text-sm md:text-base mt-1">${d.titulo}</h3>
+                </div>
+                <span class="text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                  ${d.matches}/${sintomasSelecionadosIds.length} sintomas
+                </span>
+              </div>
+              <p class="text-xs text-slate-600 dark:text-slate-300">${d.descricao || ''}</p>
+              <div class="bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 p-2.5 rounded-lg text-xs text-amber-950 dark:text-amber-200">
+                <strong class="block uppercase text-[10px] text-amber-900 dark:text-amber-400 mb-1">📞 Ler para o Solicitante no Telefone:</strong>
+                <div class="whitespace-pre-line leading-relaxed font-medium">${d.dicas_solicitante}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      atualizarRelatorio(objetosSintomas, diagnosticosEncontrados);
+    }
+
+    // =========================================================================
+    // 8. VIATURAS E GUARNIÇÃO
+    // =========================================================================
+    async function salvarViatura(e) {
+      e.preventDefault();
+      const unidade = document.getElementById('cad-vtr-unidade').value.trim().toUpperCase();
+      const prefixo = document.getElementById('cad-vtr-prefixo').value.trim().toUpperCase();
+      const tipo = document.getElementById('cad-vtr-tipo').value;
+
+      const { error } = await supabaseClient.from('viaturas').insert([{ unidade, prefixo, tipo }]);
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+
+      document.getElementById('cad-vtr-prefixo').value = '';
+      mostrarToast(`Viatura ${prefixo} cadastrada.`, 'sucesso');
+      await sincronizarComSupabase(false);
+    }
+
+    async function excluirViatura(id) {
+      if (!confirm('Excluir esta viatura?')) return;
+      await supabaseClient.from('viaturas').delete().eq('id', id);
+      delete guarnicoesMemoria[id];
+      salvarGuarnicoesNaMemoria();
+      await sincronizarComSupabase(false);
+    }
+
+    function salvarGuarnicoesNaMemoria() {
+      localStorage.setItem('cobom_guarnicoes_memoria', JSON.stringify(guarnicoesMemoria));
+      renderizarViaturasEGuarnicao();
+      renderizarSelecaoViaturasTriagem();
+      atualizarRelatorio();
+    }
+
+    function adicionarMilitarNaViatura(event, viaturaId) {
+      event.preventDefault();
+      const inputNome = document.getElementById(`mil-nome-${viaturaId}`);
+      const inputTel = document.getElementById(`mil-tel-${viaturaId}`);
+      const nome = inputNome.value.trim();
+      const tel = inputTel.value.replace(/\D/g, '');
+
+      if (!nome || tel.length < 10) return mostrarToast('Informe Nome e WhatsApp com DDD.', 'erro');
+      if (!guarnicoesMemoria[viaturaId]) guarnicoesMemoria[viaturaId] = [];
+      guarnicoesMemoria[viaturaId].push({ id: 'm_' + Date.now(), nome, tel });
+
+      inputNome.value = '';
+      inputTel.value = '';
+      mostrarToast(`${nome} escalado.`, 'sucesso');
+      salvarGuarnicoesNaMemoria();
+    }
+
+    function removerMilitarIndividual(viaturaId, militarId) {
+      guarnicoesMemoria[viaturaId] = (guarnicoesMemoria[viaturaId] || []).filter(m => m.id !== militarId);
+      salvarGuarnicoesNaMemoria();
+    }
+
+    function limparGuarnicaoDaViatura(viaturaId) {
+      if (!confirm('Limpar guarnição desta viatura?')) return;
+      guarnicoesMemoria[viaturaId] = [];
+      salvarGuarnicoesNaMemoria();
+    }
+
+    function limparTodasGuarnicoes() {
+      if (!confirm('Limpar TODAS as guarnições para novo turno?')) return;
+      guarnicoesMemoria = {};
+      salvarGuarnicoesNaMemoria();
+      mostrarToast('Todas as guarnições foram limpas.', 'sucesso');
+    }
+
+    function renderizarViaturasEGuarnicao() {
+      const container = document.getElementById('lista-cards-viaturas');
+      if (bancoViaturas.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-2">Nenhuma viatura cadastrada.</p>`;
+        return;
+      }
+
+      container.innerHTML = bancoViaturas.map(vtr => {
+        const militares = guarnicoesMemoria[vtr.id] || [];
+        return `
+          <div class="border dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-900/60 flex flex-col justify-between space-y-3">
+            <div>
+              <div class="flex justify-between items-start border-b dark:border-slate-700 pb-2">
+                <div>
+                  <span class="text-[10px] font-black uppercase bg-red-700 text-white px-2 py-0.5 rounded">${vtr.unidade}</span>
+                  <h3 class="font-black text-base mt-1">${vtr.prefixo}</h3>
+                  <p class="text-[11px] text-slate-500">${vtr.tipo}</p>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <button onclick="limparGuarnicaoDaViatura('${vtr.id}')" class="text-[11px] bg-amber-500/20 text-amber-500 px-2 py-1 rounded font-bold">🧹 Limpar</button>
+                  <button onclick="excluirViatura('${vtr.id}')" class="text-red-500 p-1">🗑️</button>
+                </div>
+              </div>
+
+              <div class="mt-3 space-y-1.5">
+                <span class="text-[11px] font-bold uppercase text-slate-400">Guarnição (${militares.length}):</span>
+                ${militares.length === 0
+                  ? `<p class="text-xs text-slate-400 italic">Sem militares na memória.</p>`
+                  : `<ul class="space-y-1">
+                      ${militares.map(m => `
+                        <li class="flex justify-between items-center bg-white dark:bg-slate-800 px-2.5 py-1.5 rounded border dark:border-slate-700 text-xs">
+                          <span><strong>${m.nome}</strong> <span class="text-slate-500">${formatarTel(m.tel)}</span></span>
+                          <button onclick="removerMilitarIndividual('${vtr.id}', '${m.id}')" class="text-red-500 font-black px-1">✕</button>
+                        </li>
+                      `).join('')}
+                    </ul>`
+                }
+              </div>
+            </div>
+
+            <form onsubmit="adicionarMilitarNaViatura(event, '${vtr.id}')" class="pt-2 border-t dark:border-slate-700 space-y-2">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                <input type="text" id="mil-nome-${vtr.id}" required placeholder="Ex: Sgt Silva" class="border dark:border-slate-600 bg-white dark:bg-slate-800 rounded p-1.5 text-xs outline-none">
+                <input type="tel" id="mil-tel-${vtr.id}" required placeholder="64999990000" class="border dark:border-slate-600 bg-white dark:bg-slate-800 rounded p-1.5 text-xs outline-none">
+              </div>
+              <button type="submit" class="w-full bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold py-1.5 rounded">
+                + Escalar na ${vtr.prefixo}
+              </button>
+            </form>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderizarSelecaoViaturasTriagem() {
+      const container = document.getElementById('selecao-viaturas-triagem');
+      if (bancoViaturas.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-2">Nenhuma viatura cadastrada.</p>`;
+        return;
+      }
+
+      container.innerHTML = bancoViaturas.map(vtr => {
+        const marcada = viaturasEmpenhadasIds.includes(vtr.id);
+        const militares = guarnicoesMemoria[vtr.id] || [];
+        const nomesMilitares = militares.map(m => m.nome).join(', ') || 'Sem guarnição definida';
+        return `
+          <button type="button" onclick="alternarViaturaEmpenhada('${vtr.id}')" class="text-left p-3 rounded-xl border-2 transition flex justify-between items-center ${marcada ? 'border-red-600 bg-red-600 text-white shadow-md' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40'}">
+            <div>
+              <div class="font-black text-xs">[${vtr.unidade}] ${vtr.prefixo}</div>
+              <div class="text-[11px] ${marcada ? 'text-red-100' : 'text-slate-400'}">👥 ${nomesMilitares}</div>
+            </div>
+            <span class="text-base font-black">${marcada ? '✓' : '+'}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function alternarViaturaEmpenhada(id) {
+      if (viaturasEmpenhadasIds.includes(id)) {
+        viaturasEmpenhadasIds = viaturasEmpenhadasIds.filter(v => v !== id);
+      } else {
+        viaturasEmpenhadasIds.push(id);
+        if (!protocoloAtual) gerarProtocolo();
+      }
+      renderizarSelecaoViaturasTriagem();
+      atualizarRelatorio();
+    }
+
+    // =========================================================================
+    // 9. RELATÓRIO E WHATSAPP
+    // =========================================================================
+    function pedirLocalizacaoWhatsApp() {
+      const tel = document.getElementById('solicitante-tel').value.replace(/\D/g, '');
+      if (tel.length < 10) return mostrarToast('Digite o telefone com DDD do solicitante!', 'erro');
+      const foneBr = tel.startsWith('55') ? tel : '55' + tel;
+      const msg = encodeURIComponent(`🚒 *CORPO DE BOMBEIROS (193)*\nEnvie sua *Localização Atual* clicando no clipe (📎) ou (+) aqui no WhatsApp para enviarmos a viatura.`);
+      window.open(`https://wa.me/${foneBr}?text=${msg}`, '_blank');
+    }
+
+    function gerarLinkMapsPeloEndereco() {
+      const end = document.getElementById('solicitante-end').value.trim();
+      if (!end) return mostrarToast('Fale ou digite o Endereço primeiro!', 'erro');
+      document.getElementById('solicitante-link-gps').value = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(end)}`;
+      atualizarRelatorio();
+    }
+
+    function montarTextoRelatorio() {
+      const nome = document.getElementById('rel-nome').textContent;
+      const tel = document.getElementById('rel-tel').textContent;
+      const end = document.getElementById('rel-end').textContent;
+      const linkGps = document.getElementById('solicitante-link-gps').value.trim();
+      const nat = document.getElementById('rel-natureza').textContent;
+      const idade = document.getElementById('rel-idade').textContent;
+      const peso = document.getElementById('rel-peso').textContent;
+      const qtd = document.getElementById('rel-qtd').textContent;
+      const obs = document.getElementById('obs-atendente').value;
+      const protocolo = protocoloAtual || '—';
+
+      const vtrsTxt = viaturasEmpenhadasIds.map(id => {
+        const v = bancoViaturas.find(b => b.id === id);
+        if (!v) return '';
+        const mils = (guarnicoesMemoria[id] || []).map(m => m.nome).join(', ');
+        return `  - [${v.unidade}] *${v.prefixo}* (${mils || 'S/ efetivo'})`;
+      }).join('\n');
+
+      const sintomasTxt = Array.from(document.querySelectorAll('#rel-lista-sintomas li'))
+        .map(li => `  - ${li.textContent}`).join('\n');
+
+      const diagsTxt = Array.from(document.querySelectorAll('#rel-lista-diagnosticos div'))
+        .map(d => `  * ${d.textContent.trim()}`).join('\n');
+
+      return `🚒 *DESPACHO COBOM - 193*
+🔖 *Protocolo:* ${protocolo}
+📅 ${document.getElementById('rel-datahora').textContent}
+-----------------------------------------
+📍 *ENDEREÇO:* ${end}${linkGps ? `\n🗺️ *GPS:* ${linkGps}` : ''}
+👤 *Solicitante:* ${nome} | 📞 ${tel}
+🚨 *Natureza:* ${nat}
+🧑 *Vítima(s):* ${qtd} | *Idade:* ${idade} | *Peso:* ${peso}
+
+🩺 *QUADRO / SINTOMAS:*
+${sintomasTxt}
+
+⚠️ *SUSPEITA / CRITICIDADE:*
+${diagsTxt || '  Nenhuma'}
+
+🚒 *VIATURAS EMPENHADAS:*
+${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
+    }
+
+    function enviarWhatsAppMilitar(telefone) {
+      const foneLimpo = telefone.replace(/\D/g, '');
+      const foneBr = foneLimpo.startsWith('55') ? foneLimpo : '55' + foneLimpo;
+      window.open(`https://wa.me/${foneBr}?text=${encodeURIComponent(montarTextoRelatorio())}`, '_blank');
+    }
+
+    function enviarGrupoOperacoesConjuntas() {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(montarTextoRelatorio())}`, '_blank');
+    }
+
+    function atualizarRelatorio(sintomasAtivos = null, diagsAtivos = null) {
+      document.getElementById('rel-nome').textContent = document.getElementById('solicitante-nome').value || 'Não inf.';
+      document.getElementById('rel-tel').textContent = document.getElementById('solicitante-tel').value || 'Não inf.';
+      document.getElementById('rel-end').textContent = document.getElementById('solicitante-end').value || 'Não informado';
+      document.getElementById('rel-natureza').textContent = naturezaSelecionada;
+      document.getElementById('rel-idade').textContent = document.getElementById('vitima-idade').value || 'Não inf.';
+      document.getElementById('rel-peso').textContent = document.getElementById('vitima-peso').value;
+      document.getElementById('rel-qtd').textContent = document.getElementById('vitima-qtd').value;
+      document.getElementById('rel-protocolo').textContent = protocoloAtual || '—';
+
+      const gpsVal = document.getElementById('solicitante-link-gps').value.trim();
+      const linhaGps = document.getElementById('rel-linha-gps');
+      const linkGps = document.getElementById('rel-link-gps');
+      if (gpsVal) {
+        linhaGps.classList.remove('hidden');
+        linkGps.href = gpsVal;
+        linkGps.textContent = gpsVal;
+      } else {
+        linhaGps.classList.add('hidden');
+      }
+
+      const divRelViaturas = document.getElementById('rel-lista-viaturas');
+      const painelZap = document.getElementById('painel-whatsapp-militares');
+      const botoesZap = document.getElementById('botoes-whatsapp-militares');
+
+      if (viaturasEmpenhadasIds.length === 0) {
+        divRelViaturas.innerHTML = '<span class="text-slate-400 italic font-normal">Nenhuma viatura selecionada</span>';
+        painelZap.classList.add('hidden');
+      } else {
+        let todosMilitaresEmpenhados = [];
+        divRelViaturas.innerHTML = viaturasEmpenhadasIds.map(id => {
+          const v = bancoViaturas.find(b => b.id === id);
+          if (!v) return '';
+          const mils = guarnicoesMemoria[id] || [];
+          mils.forEach(m => todosMilitaresEmpenhados.push({ ...m, prefixo: v.prefixo }));
+          return `<div>🚒 [${v.unidade}] ${v.prefixo} — <span class="font-normal text-slate-600 dark:text-slate-300">${mils.map(m => m.nome).join(', ') || 'Sem guarnição'}</span></div>`;
+        }).join('');
+
+        if (todosMilitaresEmpenhados.length > 0) {
+          painelZap.classList.remove('hidden');
+          botoesZap.innerHTML = todosMilitaresEmpenhados.map(m => `
+            <button onclick="enviarWhatsAppMilitar('${m.tel}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow flex items-center space-x-1.5">
+              <span>📲</span><span>${m.nome} (${m.prefixo})</span>
+            </button>
+          `).join('');
+        } else {
+          painelZap.classList.add('hidden');
+        }
+      }
+
+      const obs = document.getElementById('obs-atendente').value;
+      const obsContainer = document.getElementById('rel-obs-container');
+      if (obs.trim()) {
+        obsContainer.classList.remove('hidden');
+        document.getElementById('rel-obs').textContent = obs;
+      } else {
+        obsContainer.classList.add('hidden');
+      }
+
+      if (sintomasAtivos !== null) {
+        const ulSint = document.getElementById('rel-lista-sintomas');
+        ulSint.innerHTML = sintomasAtivos.length
+          ? sintomasAtivos.map(s => `<li>${s.red_flag ? '🚨 <strong>[RED FLAG]</strong> ' : ''}[${s.categoria}] ${s.nome}</li>`).join('')
+          : '<li class="text-slate-400 italic">Nenhum sintoma selecionado</li>';
+      }
+
+      if (diagsAtivos !== null) {
+        const divDiag = document.getElementById('rel-lista-diagnosticos');
+        if (diagsAtivos.length === 0) {
+          divDiag.innerHTML = '<p class="text-slate-400 italic">Sem hipóteses calculadas</p>';
+        } else {
+          divDiag.innerHTML = diagsAtivos.map(d => `
+            <div class="border-b dark:border-slate-700 pb-1">
+              <strong>[${d.criticidade}] ${d.titulo}</strong> (${d.matches}/${sintomasSelecionadosIds.length} sintomas)
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    function copiarRelatorio() {
+      navigator.clipboard.writeText(montarTextoRelatorio())
+        .then(() => mostrarToast('Ficha copiada para a área de transferência.', 'sucesso'))
+        .catch(() => mostrarToast('Não foi possível copiar. Use Ctrl+C manualmente.', 'erro'));
+    }
+
+    function baixarPDF() {
+      const html = document.documentElement;
+      const eraDark = html.classList.contains('dark');
+      const blocoEdicaoObs = document.querySelector('#area-relatorio .no-print');
+
+      if (eraDark) html.classList.remove('dark');
+      if (blocoEdicaoObs) blocoEdicaoObs.style.display = 'none';
+
+      const restaurar = () => {
+        if (eraDark) html.classList.add('dark');
+        if (blocoEdicaoObs) blocoEdicaoObs.style.display = '';
+      };
+
+      const nomeArquivo = `despacho-193-${(protocoloAtual || Date.now()).replace(/[^\w-]/g, '_')}.pdf`;
+
+      html2pdf().set({
+        margin: 10,
+        filename: nomeArquivo,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      })
+      .from(document.getElementById('area-relatorio'))
+      .save()
+      .then(() => { restaurar(); mostrarToast('PDF gerado.', 'sucesso'); })
+      .catch(() => { restaurar(); mostrarToast('Erro ao gerar PDF.', 'erro'); });
+    }
+
+    function limparChamado() {
+      const temConteudo =
+        sintomasSelecionadosIds.length > 0 ||
+        document.getElementById('solicitante-nome').value.trim() ||
+        document.getElementById('solicitante-tel').value.trim() ||
+        document.getElementById('solicitante-end').value.trim() ||
+        viaturasEmpenhadasIds.length > 0;
+
+      if (temConteudo && !confirm('Limpar o chamado atual? Esta ação não pode ser desfeita.')) return;
+
+      document.getElementById('solicitante-nome').value = '';
+      document.getElementById('solicitante-tel').value = '';
+      document.getElementById('solicitante-end').value = '';
+      document.getElementById('solicitante-link-gps').value = '';
+      document.getElementById('vitima-idade').value = '';
+      document.getElementById('vitima-peso').value = 'Peso não inf.';
+      document.getElementById('vitima-qtd').value = '1';
+      document.getElementById('obs-atendente').value = '';
+      document.getElementById('input-busca-sintoma').value = '';
+      document.getElementById('rel-datahora').innerText = new Date().toLocaleString('pt-BR');
+
+      sintomasSelecionadosIds = [];
+      viaturasEmpenhadasIds = [];
+      protocoloAtual = null;
+      pararTimer();
+
+      selecionarNaturezaRapida('TODAS');
+      renderizarSelecaoViaturasTriagem();
+      processarTriagem();
+      mostrarToast('Chamado limpo. Pronto para nova ocorrência.', 'info');
+    }
+
+    // =========================================================================
+    // 10. CRUD SINTOMAS/DIAGNÓSTICOS
+    // =========================================================================
+    function renderizarAdmin() {
+      document.getElementById('count-sintomas').textContent = bancoSintomas.length;
+      document.getElementById('count-diagnosticos').textContent = bancoDiagnosticos.length;
+
+      document.getElementById('lista-admin-sintomas').innerHTML = bancoSintomas.map(s => `
+        <li class="py-1.5 px-2 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
+          <span>${s.red_flag ? '🚨 ' : ''}<strong>[${s.categoria}]</strong> ${s.nome}</span>
+          <div class="flex space-x-1">
+            <button onclick="iniciarEdicaoSintoma('${s.id}')" class="text-blue-500 px-1.5">✏️</button>
+            <button onclick="excluirSintoma('${s.id}')" class="text-red-500 px-1.5">🗑️</button>
+          </div>
+        </li>
+      `).join('');
+
+      const estaEditandoDiag = !!document.getElementById('edit-diag-id').value;
+      const selecionadosAtuais = estaEditandoDiag
+        ? Array.from(document.querySelectorAll('input[name="sintoma-check"]:checked')).map(c => c.value)
+        : [];
+
+      document.getElementById('checkboxes-sintomas-cadastro').innerHTML = bancoSintomas.map(s => {
+        const checked = selecionadosAtuais.includes(s.id) ? 'checked' : '';
+        return `
+          <label class="flex items-center space-x-2 p-1.5 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded cursor-pointer">
+            <input type="checkbox" name="sintoma-check" value="${s.id}" ${checked} class="rounded text-red-600">
+            <span>${s.red_flag ? '🚨 ' : ''}<strong>[${s.categoria}]</strong> ${s.nome}</span>
+          </label>
+        `;
+      }).join('');
+
+      document.getElementById('lista-admin-diagnosticos').innerHTML = bancoDiagnosticos.map(d => `
+        <li class="py-2 px-2 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
+          <div>
+            <span class="font-bold">[${d.criticidade}] ${d.titulo}</span>
+            <span class="text-slate-400 ml-1">(${d.sintomas_ids.length} sintomas)</span>
+          </div>
+          <div class="flex space-x-1">
+            <button onclick="iniciarEdicaoDiagnostico('${d.id}')" class="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded font-bold">✏️</button>
+            <button onclick="excluirDiagnostico('${d.id}')" class="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-1 rounded font-bold">🗑️</button>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    function iniciarEdicaoSintoma(id) {
+      const sint = bancoSintomas.find(s => s.id === id);
+      if (!sint) return;
+      document.getElementById('edit-sintoma-id').value = sint.id;
+      document.getElementById('cad-sintoma-cat').value = sint.categoria;
+      document.getElementById('cad-sintoma-nome').value = sint.nome;
+      document.getElementById('cad-sintoma-redflag').checked = !!sint.red_flag;
+      document.getElementById('titulo-form-sintoma').innerText = '✏️ Editando Sintoma';
+      document.getElementById('btn-submit-sintoma').innerText = 'Atualizar Sintoma';
+      document.getElementById('btn-cancelar-sintoma').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicaoSintoma() {
+      document.getElementById('form-sintoma').reset();
+      document.getElementById('edit-sintoma-id').value = '';
+      document.getElementById('titulo-form-sintoma').innerText = '➕ 1. Cadastrar Sintoma';
+      document.getElementById('btn-submit-sintoma').innerText = 'Gravar Sintoma no Supabase';
+      document.getElementById('btn-cancelar-sintoma').classList.add('hidden');
+    }
+
+    async function salvarSintoma(e) {
+      e.preventDefault();
+      const idEdicao = document.getElementById('edit-sintoma-id').value;
+      const categoria = document.getElementById('cad-sintoma-cat').value;
+      const nome = document.getElementById('cad-sintoma-nome').value.trim();
+      const red_flag = document.getElementById('cad-sintoma-redflag').checked;
+
+      const { error } = idEdicao
+        ? await supabaseClient.from('sintomas').update({ categoria, nome, red_flag }).eq('id', idEdicao)
+        : await supabaseClient.from('sintomas').insert([{ categoria, nome, red_flag }]);
+
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      cancelarEdicaoSintoma();
+      mostrarToast(idEdicao ? 'Sintoma atualizado.' : 'Sintoma gravado.', 'sucesso');
+      await sincronizarComSupabase(false);
+    }
+
+    async function excluirSintoma(id) {
+      if (!confirm('Excluir este sintoma? Os vínculos com diagnósticos também serão removidos.')) return;
+      await supabaseClient.from('sintomas').delete().eq('id', id);
+      mostrarToast('Sintoma excluído.', 'sucesso');
+      await sincronizarComSupabase(false);
+    }
+
+    function iniciarEdicaoDiagnostico(id) {
+      const diag = bancoDiagnosticos.find(d => d.id === id);
+      if (!diag) return;
+      document.getElementById('edit-diag-id').value = diag.id;
+      document.getElementById('cad-diag-titulo').value = diag.titulo;
+      document.getElementById('cad-diag-crit').value = diag.criticidade;
+      document.getElementById('cad-diag-desc').value = diag.descricao || '';
+      document.getElementById('cad-diag-dicas').value = diag.dicas_solicitante || '';
+      document.querySelectorAll('input[name="sintoma-check"]').forEach(chk => {
+        chk.checked = diag.sintomas_ids.includes(chk.value);
+      });
+      document.getElementById('titulo-form-diag').innerText = `✏️ Editando: ${diag.titulo}`;
+      document.getElementById('btn-submit-diag').innerText = 'Salvar Alterações';
+      document.getElementById('btn-cancelar-diag').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicaoDiagnostico() {
+      document.getElementById('form-diagnostico').reset();
+      document.getElementById('edit-diag-id').value = '';
+      document.querySelectorAll('input[name="sintoma-check"]').forEach(chk => chk.checked = false);
+      document.getElementById('titulo-form-diag').innerText = '🩺 2. Cadastrar Diagnóstico';
+      document.getElementById('btn-submit-diag').innerText = 'Gravar Diagnóstico no Supabase';
+      document.getElementById('btn-cancelar-diag').classList.add('hidden');
+    }
+
+    async function salvarDiagnostico(e) {
+      e.preventDefault();
+      const idEdicao = document.getElementById('edit-diag-id').value;
+      const titulo = document.getElementById('cad-diag-titulo').value.trim();
+      const criticidade = document.getElementById('cad-diag-crit').value;
+      const descricao = document.getElementById('cad-diag-desc').value.trim();
+      const dicas_solicitante = document.getElementById('cad-diag-dicas').value.trim();
+      const sintomas_ids = Array.from(document.querySelectorAll('input[name="sintoma-check"]:checked')).map(c => c.value);
+
+      if (sintomas_ids.length === 0) return mostrarToast('Selecione ao menos 1 sintoma!', 'erro');
+
+      let diagId = idEdicao;
+      if (idEdicao) {
+        const { error } = await supabaseClient.from('diagnosticos').update({ titulo, criticidade, descricao, dicas_solicitante }).eq('id', idEdicao);
+        if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+        await supabaseClient.from('diagnostico_sintomas').delete().eq('diagnostico_id', idEdicao);
+      } else {
+        const { data, error } = await supabaseClient.from('diagnosticos').insert([{ titulo, criticidade, descricao, dicas_solicitante }]).select().single();
+        if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+        diagId = data.id;
+      }
+
+      const relacoes = sintomas_ids.map(sintoma_id => ({ diagnostico_id: diagId, sintoma_id }));
+      const { error: relError } = await supabaseClient.from('diagnostico_sintomas').insert(relacoes);
+      if (relError) return mostrarToast('Erro ao vincular sintomas: ' + relError.message, 'erro');
+
+      cancelarEdicaoDiagnostico();
+      mostrarToast(idEdicao ? 'Diagnóstico atualizado.' : 'Diagnóstico gravado.', 'sucesso');
+      await sincronizarComSupabase(false);
+    }
+
+    async function excluirDiagnostico(id) {
+      if (!confirm('Excluir este diagnóstico?')) return;
+      await supabaseClient.from('diagnosticos').delete().eq('id', id);
+      mostrarToast('Diagnóstico excluído.', 'sucesso');
+      await sincronizarComSupabase(false);
+    }
+
+    function alternarAba(aba) {
+      const abas = ['triagem', 'viaturas', 'cadastros'];
+      abas.forEach(a => {
+        document.getElementById(`view-${a}`).classList.toggle('hidden', a !== aba);
+        const btn = document.getElementById(`tab-${a}`);
+        if (a === aba) {
+          btn.className = "flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-white text-red-700 shadow whitespace-nowrap";
+        } else {
+          btn.className = "flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap";
+        }
+      });
+    }
+
+    // Mantém função para compatibilidade (caso algum onclick ainda chame `alternarTema` global)
+    window.alternarTema = alternarTema;
+    window.alternarAba   = alternarAba;
+  </script>
+</body>
+</html>

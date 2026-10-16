@@ -1,0 +1,20 @@
+{
+  "name": "CBMGO 193 — Relatórios e Triagem",
+  "short_name": "CBMGO 193",
+  "description": "Relatório de falhas da linha 193 + Triagem e despacho rápido do COB.",
+  "lang": "pt-BR",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f4f4",
+  "theme_color": "#b30000",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

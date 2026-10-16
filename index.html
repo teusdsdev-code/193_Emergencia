@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#b30000">
+<title>Relatório de Falhas - Linha 193 (CBMGO)</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E">
+<script>
+/* Aplica o tema antes do 1º paint e migra chave antiga (tema-cobom) */
+(function(){
+  try {
+    var t = localStorage.getItem('cbmgo193.theme');
+    if (!t) {
+      var old = localStorage.getItem('tema-cobom');
+      if (old) { t = old; localStorage.setItem('cbmgo193.theme', old); }
+    }
+    if (t === 'dark') document.documentElement.classList.add('dark');
+    else if (t === 'light') document.documentElement.classList.remove('dark');
+    /* se nada foi salvo, mantém o padrão do HTML (class="dark") */
+  } catch(_){}
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --primary:#b30000;
+    --primary-dark:#7a0000;
+    --bg:#f4f4f4;
+    --card:#ffffff;
+    --border:#d0d0d0;
+    --text:#222;
+    --muted:#666;
+    --ok:#1b7a2e;
+    --warn:#b36b00;
+    --danger:#b30000;
+    --shadow:0 2px 6px rgba(0,0,0,.08);
+    --tab-hover:rgba(179,0,0,.08);
+  }
+  html.dark{
+    --primary:#ff4d4d;
+    --primary-dark:#cc0000;
+    --bg:#121212;
+    --card:#1e1e1e;
+    --border:#333;
+    --text:#e6e6e6;
+    --muted:#9a9a9a;
+    --ok:#4caf50;
+    --warn:#e0a13a;
+    --danger:#ff5252;
+    --shadow:0 2px 6px rgba(0,0,0,.5);
+    --tab-hover:rgba(255,77,77,.14);
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family:Arial,Helvetica,sans-serif;
+    margin:0;padding:20px 16px 60px;
+    background:var(--bg);color:var(--text);
+    transition:background .2s ease,color .2s ease;
+  }
+
+  /* ---------- App bar ---------- */
+  .app-bar{
+    max-width:1100px;margin:0 auto 12px;
+    display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:12px;min-width:0;}
+  .brand-badge{
+    width:44px;height:44px;border-radius:10px;flex-shrink:0;
+    background:var(--primary);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:900;font-size:1rem;
+    box-shadow:0 2px 6px rgba(179,0,0,.25);
+  }
+  .brand-text{min-width:0;}
+  .brand-text h1{margin:0;font-size:1.1rem;color:var(--primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .brand-text small{color:var(--muted);font-size:.78rem;}
+  .app-bar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .icon-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:8px 14px;margin:0;background:var(--card);color:var(--text);
+    border:1px solid var(--border);border-radius:8px;cursor:pointer;
+    font-size:.88rem;font-weight:600;line-height:1;
+    transition:all .15s ease;font-family:inherit;
+  }
+  .icon-btn:hover{background:var(--tab-hover);border-color:var(--primary);color:var(--primary);}
+  .status{font-size:.82rem;color:var(--muted);}
+  .status.saved{color:var(--ok);}
+  .status.error{color:var(--danger);}
+
+  /* ---------- Tabs ---------- */
+  .tabs{
+    max-width:1100px;margin:0 auto 16px;
+    display:flex;gap:4px;background:var(--card);
+    padding:4px;border-radius:10px;box-shadow:var(--shadow);
+    border:1px solid var(--border);overflow-x:auto;
+  }
+  .tab{
+    flex:1;text-align:center;padding:11px 14px;border-radius:7px;
+    text-decoration:none;color:var(--text);font-weight:700;font-size:.92rem;
+    white-space:nowrap;transition:all .15s ease;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .tab:hover{background:var(--tab-hover);color:var(--primary);}
+  .tab.active{background:var(--primary);color:#fff;box-shadow:0 2px 6px rgba(179,0,0,.25);}
+  .tab.active:hover{background:var(--primary);color:#fff;}
+
+  /* ---------- Cards / form ---------- */
+  .card{background:var(--card);padding:18px;margin-bottom:16px;border-radius:8px;box-shadow:var(--shadow);border:1px solid var(--border);}
+  .card h3{margin:0 0 12px;color:var(--primary);font-size:1.05rem;}
+  .row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .col{flex:1;min-width:220px;display:flex;flex-direction:column;}
+  label{font-weight:bold;margin-bottom:4px;font-size:.92rem;}
+  label .req{color:var(--danger);}
+  label .hint{font-weight:normal;color:var(--muted);font-size:.82rem;}
+  input,select,textarea{
+    padding:8px;border:1px solid var(--border);border-radius:4px;width:100%;
+    font-family:inherit;font-size:.95rem;background:var(--card);color:var(--text);
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--primary);border-color:var(--primary);}
+  textarea{min-height:80px;resize:vertical;}
+  button{
+    padding:10px 16px;margin:4px 6px 4px 0;background:var(--primary);color:#fff;
+    border:none;border-radius:4px;cursor:pointer;font-size:.95rem;font-weight:600;
+    transition:background .15s ease;font-family:inherit;
+  }
+  button:hover{background:var(--primary-dark);}
+  button.secondary{background:#444;color:#fff;}
+  html.dark button.secondary{background:#555;}
+  button.secondary:hover{background:#222;}
+  html.dark button.secondary:hover{background:#777;}
+  button.ghost{background:var(--card);color:var(--text);border:1px solid var(--border);}
+  button.ghost:hover{background:var(--tab-hover);}
+  button.danger{background:var(--danger);}
+  button.small{padding:6px 10px;font-size:.82rem;}
+  .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center;}
+  .badge{display:inline-block;background:rgba(179,0,0,.12);color:var(--primary);padding:3px 10px;border-radius:12px;font-size:.8rem;font-weight:700;}
+  .badge.ok{background:rgba(27,122,46,.15);color:var(--ok);}
+  .badge.warn{background:rgba(179,107,0,.15);color:var(--warn);}
+  .test-card{border-left:4px solid var(--primary);}
+  .test-card .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .test-card .header strong{color:var(--primary);}
+  .notice{
+    background:rgba(179,107,0,.12);border-left:4px solid var(--warn);
+    padding:10px 12px;border-radius:4px;font-size:.88rem;margin-bottom:12px;color:var(--text);
+  }
+  .notice b{color:var(--text);}
+  .folder-hint{font-size:.85rem;color:var(--muted);margin-left:6px;}
+  .folder-hint b{color:var(--primary);}
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:fixed;bottom:20px;left:50%;transform:translate(-50%,20px);
+    background:#222;color:#fff;padding:12px 20px;border-radius:8px;
+    box-shadow:0 4px 12px rgba(0,0,0,.3);opacity:0;pointer-events:none;
+    transition:all .25s ease;z-index:9999;max-width:90vw;text-align:center;
+  }
+  html.dark .toast{background:#333;color:#fff;}
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+  .toast.ok{background:var(--ok);}
+  .toast.err{background:var(--danger);}
+  .toast.warn{background:var(--warn);}
+
+  @media (max-width:600px){
+    body{padding:12px;}
+    .card{padding:14px;}
+    .brand-text h1{font-size:1rem;}
+    .icon-btn{padding:8px 10px;font-size:.82rem;}
+  }
+  @media print{
+    body{background:#fff;padding:0;}
+    button,.actions,.tabs,.app-bar-actions,.toast,.folder-hint{display:none !important;}
+    .card{box-shadow:none;border:1px solid #ccc;page-break-inside:avoid;}
+    input,select,textarea{border:none;border-bottom:1px solid #999;background:transparent;}
+    .app-bar{margin-bottom:6px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="app-bar">
+  <div class="brand">
+    <div class="brand-badge">193</div>
+    <div class="brand-text">
+      <h1>Relatório de Falhas — Linha 193</h1>
+      <small>CBMGO · BM/6 (TIC)</small>
+    </div>
+  </div>
+  <div class="app-bar-actions">
+    <span class="status" id="autosaveStatus" aria-live="polite"></span>
+    <button id="installBtn" class="icon-btn" type="button" title="Instalar aplicativo" hidden>
+      <span>📲</span><span>Instalar</span>
+    </button>
+    <button id="themeBtn" class="icon-btn" type="button" title="Alternar tema claro/escuro">
+      <span id="themeIcon">🌙</span><span id="themeLabel">Modo escuro</span>
+    </button>
+  </div>
+</header>
+
+<nav class="tabs" id="appTabs" aria-label="Navegação entre aplicativos"></nav>
+
+<div class="notice" style="max-width:1100px;margin:0 auto 16px;">
+  <b>Orientações (Ofício Circular BM/6):</b> preencha <b>um relatório para cada incidente</b> ou período de instabilidade.
+  Recomenda-se registrar <b>ao menos 3 (três) testes</b> — preferencialmente com celulares de operadoras distintas,
+  telefone fixo e aparelho VoIP da unidade. Os dados são gravados automaticamente neste navegador.
+</div>
+
+<form id="reportForm" novalidate>
+
+  <!-- SEÇÃO I -->
+  <section class="card">
+    <h3>I. Identificação básica e descrição geral</h3>
+
+    <div class="row">
+      <div class="col">
+        <label for="unit">Unidade Operacional <span class="req">*</span></label>
+        <select id="unit" name="unit" required>
+          <option value="">Selecione</option>
+          <option>6º BBM - Itumbiara</option>
+          <option>9º BBM - Caldas Novas</option>
+          <option>10º BBM - Catalão</option>
+          <option>11ª CIBM - Uruaçu</option>
+          <option>12ª CIBM - Morrinhos</option>
+          <option>14ª CIBM - Pires do Rio</option>
+          <option>16ª CIBM - Goiatuba</option>
+          <option>23ª CIBM - Ipameri</option>
+          <option>DBM de Bom Jesus</option>
+          <option>DBM de Pontalina</option>
+          <option>Outra</option>
+        </select>
+      </div>
+      <div class="col">
+        <label for="sector">Setor afetado <span class="req">*</span></label>
+        <select id="sector" name="sector" required>
+          <option value="">Selecione</option>
+          <option>COB</option>
+          <option>CIICC</option>
+          <option>SAAD</option>
+          <option>SECIP</option>
+          <option>Outro</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label for="lineNumber">Número da Linha / Ramal <span class="req">*</span></label>
+        <input id="lineNumber" name="lineNumber" type="text" required list="telefoneOptions"
+               placeholder="Ex: (62) 3593-0668 — Linha 193 / Ramal 201">
+        <datalist id="telefoneOptions">
+          <option value="(64) 3441-1651 e (64) 3441-1652">
+        </datalist>
+      </div>
+      <div class="col">
+        <label for="operator">Operadora responsável <span class="req">*</span></label>
+        <select id="operator" name="operator" required>
+          <option value="">Selecione</option>
+          <option>Oi</option>
+          <option>Vivo</option>
+          <option>Claro</option>
+          <option>TIM</option>
+          <option>Algar</option>
+          <option>Sercomtel</option>
+          <option>Embratel</option>
+          <option>Outra</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label for="startDate">Início da falha <span class="req">*</span></label>
+        <input id="startDate" name="startDate" type="datetime-local" required>
+      </div>
+      <div class="col">
+        <label for="endDate">Fim da falha <span class="hint">(deixe em branco se ainda persistir)</span></label>
+        <input id="endDate" name="endDate" type="datetime-local">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label for="palliative">Medidas paliativas adotadas <span class="hint">(digite ou escolha uma sugestão)</span></label>
+        <input id="palliative" name="palliative" type="text" list="medidasOptions"
+               placeholder="Ex: Divulgação do WhatsApp e celular emergencial">
+        <datalist id="medidasOptions">
+          <option value="Divulgação do WhatsApp e celular emergencial">
+          <option value="Divulgação do WhatsApp, celular emergencial e afins">
+          <option value="Orientação à população para acionar o 190">
+          <option value="Nenhuma medida adotada até o momento">
+        </datalist>
+      </div>
+      <div class="col">
+        <label for="protocol">Protocolo aberto junto à operadora</label>
+        <input id="protocol" name="protocol" type="text"
+               placeholder="Nº do protocolo (se houver)">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label for="localContact">Contato local — nome e celular <span class="req">*</span></label>
+        <input id="localContact" name="localContact" type="tel" required
+               placeholder="Ex: Sgt Fulano — (64) 99999-0000">
+      </div>
+    </div>
+  </section>
+
+  <!-- SEÇÃO II -->
+  <section class="card">
+    <h3>II. Classificação e descrição específica da falha</h3>
+
+    <div class="col" style="margin-bottom:12px;">
+      <label for="failureType">Tipo de falha observada <span class="req">*</span></label>
+      <select id="failureType" name="failureType" required>
+        <option value="">Selecione</option>
+        <option>Inoperância Total do Serviço</option>
+        <option>Inoperância do 193</option>
+        <option>Falhas Intermitentes / Parciais</option>
+        <option>Chamadas Não Completadas</option>
+        <option>Ligações Unilaterais</option>
+        <option>Qualidade Insatisfatória de Áudio</option>
+        <option>Problemas de Dependência de Dados (VoIP)</option>
+        <option>Outros Problemas</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="failureDetails">Detalhes observados <span class="req">*</span></label>
+      <textarea id="failureDetails" name="failureDetails" required
+        placeholder="Descreva a manifestação: Falha Contínua (para e volta varias vezes) ou temporária (pontual)? afeta só o 193 ou também linhas locais ou sistema de internet? frequência, horários, comportamento do áudio (cortando, mudo e etc...)? internet da unidade estável?"></textarea>
+    </div>
+
+    <div style="margin-top:12px;">
+      <label for="impact">Impacto operacional percebido <span class="hint">(OPCIONAL)</span></label>
+      <textarea id="impact" name="impact"
+        placeholder="Ex: chamadas não chegaram ao numero de EMERGENCIA COB, população orientada a ligar em celular da guarda, sobrecarga no 190 etc."></textarea>
+    </div>
+  </section>
+
+  <!-- SEÇÃO III -->
+  <section class="card">
+    <h3>III. Testes para diagnóstico <span class="badge" id="testCount">0 teste(s)</span></h3>
+    <p style="margin-top:0;color:var(--muted);font-size:.9rem;">
+      Recomenda-se registrar <b>ao menos 3 (três) chamadas</b>, preferencialmente com celulares de
+      <b>operadoras distintas</b>, telefone <b>fixo</b> e aparelho <b>VoIP interno</b> da unidade.
+      <b>Não é obrigatório</b> — o relatório pode ser gerado com a quantidade de testes que houver.
+    </p>
+    <div id="testsContainer"></div>
+    <button type="button" class="secondary" onclick="addTest()">+ Adicionar teste</button>
+    <span id="testWarning" class="status" style="margin-left:8px;"></span>
+  </section>
+
+  <div class="actions">
+    <button type="button" class="secondary" onclick="exportPDF()">Exportar PDF</button>
+    <button type="button" class="ghost" onclick="downloadJSON()">Baixar JSON</button>
+    <button type="button" class="ghost" onclick="window.print()">Imprimir</button>
+    <button type="button" class="danger" onclick="clearForm(true)">Limpar formulário</button>
+    <span class="folder-hint" id="folderHint"></span>
+  </div>
+</form>
+
+<input type="file" id="importFile" accept="application/json,.json" style="display:none;">
+
+<script>
+/* =========================================================
+   CONSTANTES GERAIS
+   ========================================================= */
+const STORAGE_KEY  = 'cbmgo_193_report_v2';
+const THEME_KEY    = 'cbmgo193.theme';
+const FOLDER_KEY   = 'rootDir';
+
+/* Abas do site — a ordem aqui é a ordem exibida.
+   O `href` deve bater com o nome do arquivo HTML. */
+const APPS = [
+  { id: 'relatorio', label: '📋 Relatório 193', href: './index.html' },
+  { id: 'triagem',   label: '🚑 Triagem',       href: './triagem.html' }
+];
+
+const OPERATORS = ["Oi","Vivo","Claro","TIM","Algar","Sercomtel","Embratel","Outra"];
+const TEST_ORIGINS = ["Celular","Telefone fixo","VoIP interno (unidade)","Rádio / Outro"];
+const TEST_RESULTS = [
+  "Chamada completada sem falhas",
+  "Falha / Ocupado",
+  "Áudio unilateral (apenas uma parte ouve)",
+  "Interrupção / queda durante a chamada",
+  "Chamada não completada (não conecta)",
+  "Áudio de má qualidade (eco, cortes, atraso)",
+  "Não foi possível testar",
+  "Outro (descrever em observação)"
+];
+
+/* =========================================================
+   HELPERS DE DATA / HORA (hora local!)
+   ========================================================= */
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fmtDateTime(v){
+  if (!v) return '—';
+  const d = (v instanceof Date) ? v : new Date(v);
+  if (isNaN(d.getTime())) return String(v);
+  return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function nowLocalISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function fileStamp(d = new Date()){
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}_${pad2(d.getHours())}-${pad2(d.getMinutes())}`;
+}
+function monthFolderFromDate(v){
+  if (!v) return 'sem-data';
+  const d = (v instanceof Date) ? v : new Date(v);
+  if (isNaN(d.getTime())) return 'sem-data';
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
+}
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+function toast(msg, type='ok', ms=3800){
+  let el = document.getElementById('toast');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.className = 'toast ' + type + ' show';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+/* =========================================================
+   INDEXEDDB — guarda o FileSystemDirectoryHandle raiz
+   ========================================================= */
+let _db = null;
+function idbOpen(){
+  if (_db) return Promise.resolve(_db);
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('cbmgo193', 1);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv');
+    };
+    req.onsuccess = (e) => { _db = e.target.result; res(_db); };
+    req.onerror = () => rej(req.error);
+  });
+}
+async function idbSet(key, value){
+  const d = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = d.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(value, key);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbGet(key){
+  const d = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = d.transaction('kv', 'readonly');
+    const r = tx.objectStore('kv').get(key);
+    r.onsuccess = () => res(r.result || null);
+    r.onerror = () => rej(r.error);
+  });
+}
+
+/* =========================================================
+   FILE SYSTEM ACCESS — pasta mensal
+   ========================================================= */
+const FS_API_OK = typeof window.showDirectoryPicker === 'function';
+
+async function ensureRootFolder(){
+  if (!FS_API_OK) return null;
+  let handle = await idbGet(FOLDER_KEY);
+  if (handle){
+    try {
+      const state = await handle.queryPermission({ mode: 'readwrite' });
+      if (state === 'granted') return handle;
+      const asked = await handle.requestPermission({ mode: 'readwrite' });
+      if (asked === 'granted') return handle;
+    } catch(_) { }
+  }
+  handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'cbmgo193' });
+  await idbSet(FOLDER_KEY, handle);
+  return handle;
+}
+
+async function saveWithMonthlyFolder(blob, monthFolder, filename, mime){
+  if (FS_API_OK){
+    try {
+      const root = await ensureRootFolder();
+      if (root){
+        const monthDir = await root.getDirectoryHandle(monthFolder, { create: true });
+        const fileHandle = await monthDir.getFileHandle(filename, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        toast(`📁 Salvo em ${monthFolder}/${filename}`, 'ok');
+        return { method: 'fs-api', path: `${monthFolder}/${filename}` };
+      }
+    } catch (e){
+      if (e && e.name === 'AbortError'){
+        toast('Salvamento cancelado.', 'warn', 2200);
+        return { method: 'abort' };
+      }
+      console.warn('File System Access falhou, usando download:', e);
+    }
+  }
+  const downloadName = `${monthFolder}__${filename}`;
+  downloadBlob(blob, downloadName, mime);
+  toast(`📥 Download: ${downloadName}`, 'ok');
+  return { method: 'download', path: downloadName };
+}
+
+function downloadBlob(blob, filename, mime){
+  const b = (mime && blob.type !== mime) ? new Blob([blob], { type: mime }) : blob;
+  const url = URL.createObjectURL(b);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/* =========================================================
+   ABAS — destaca automaticamente a aba ativa
+   ========================================================= */
+function currentPage(){
+  const p = (location.pathname.split('/').pop() || '').toLowerCase();
+  return p === '' ? 'index.html' : p;
+}
+function renderTabs(){
+  const nav = document.getElementById('appTabs');
+  if (!nav) return;
+  const cur = currentPage();
+  nav.innerHTML = APPS.map(a => {
+    const file = (a.href.split('/').pop() || 'index.html').toLowerCase();
+    const active = (file === cur) || (file === 'index.html' && cur === 'index.html');
+    return `<a class="tab ${active ? 'active' : ''}" href="${a.href}" data-app="${a.id}">${a.label}</a>`;
+  }).join('');
+}
+
+/* =========================================================
+   TEMA CLARO / ESCURO
+   ========================================================= */
+function applyTheme(mode){
+  const dark = mode === 'dark';
+  document.documentElement.classList.toggle('dark', dark);
+
+  const icon  = document.getElementById('themeIcon');
+  const label = document.getElementById('themeLabel');
+  const btn   = document.getElementById('themeBtn');
+  if (icon)  icon.textContent  = dark ? '☀️' : '🌙';
+  if (label) label.textContent = dark ? 'Modo claro' : 'Modo escuro';
+  if (btn)   btn.title         = dark ? 'Mudar para modo claro' : 'Mudar para modo escuro';
+
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? '#121212' : '#b30000');
+}
+function toggleTheme(){
+  const dark = document.documentElement.classList.contains('dark');
+  const next = dark ? 'light' : 'dark';
+  try { localStorage.setItem(THEME_KEY, next); } catch(_){}
+  applyTheme(next);
+  toast(next === 'dark' ? '🌙 Modo escuro ativado' : '☀️ Modo claro ativado', 'ok', 1800);
+}
+
+/* =========================================================
+   PWA — instalação
+   ========================================================= */
+let deferredPrompt = null;
+const installBtn = document.getElementById('installBtn');
+
+function isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.navigator.standalone === true;
+}
+function updateInstallUI(){
+  if (!installBtn) return;
+  if (isStandalone()){ installBtn.hidden = true; return; }
+  installBtn.hidden = false;
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  updateInstallUI();
+});
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  updateInstallUI();
+  toast('Aplicativo instalado! ✅', 'ok');
+});
+if (installBtn){
+  installBtn.addEventListener('click', async () => {
+    if (isStandalone()) return;
+    if (deferredPrompt){
+      deferredPrompt.prompt();
+      try {
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') deferredPrompt = null;
+      } catch(_){}
+      updateInstallUI();
+      return;
+    }
+    alert(
+      'Como instalar:\n\n' +
+      '• iPhone/iPad (Safari): toque em Compartilhar  →  Adicionar à Tela de Início.\n' +
+      '• Android (Chrome): menu ⋮  →  Instalar app / Adicionar à tela inicial.\n' +
+      '• Desktop (Chrome/Edge): ícone de instalação na barra de endereços.'
+    );
+  });
+}
+
+/* =========================================================
+   TESTES — bloco dinâmico
+   ========================================================= */
+function addTest(prefill = {}){
+  const container = document.getElementById('testsContainer');
+  const div = document.createElement('div');
+  div.className = 'card test-card';
+  div.innerHTML = `
+    <div class="header">
+      <strong class="testTitle">Teste</strong>
+      <button type="button" class="small danger" onclick="removeTest(this)" title="Remover este teste">Remover</button>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label>Tipo de origem <span class="req">*</span></label>
+        <select class="testOriginType" required>
+          <option value="">Selecione</option>
+          ${TEST_ORIGINS.map(o=>`<option>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="col">
+        <label>Número de origem <span class="req">*</span></label>
+        <input type="tel" class="originNumber" required placeholder="Ex: (64) 99999-0000">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label>Operadora da linha de origem <span class="req">*</span></label>
+        <select class="originOperator" required>
+          <option value="">Selecione</option>
+          ${OPERATORS.map(o=>`<option>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="col">
+        <label>Data e hora do teste <span class="req">*</span></label>
+        <input type="datetime-local" class="testDate" required>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label>Resultado do teste <span class="req">*</span></label>
+        <select class="testResult" required>
+          <option value="">Selecione</option>
+          ${TEST_RESULTS.map(o=>`<option>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="col">
+        <label>Observação <span class="hint">(opcional)</span></label>
+        <input type="text" class="testNote" placeholder="Ex: caiu após 15s; áudio mudo para o atendente">
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+
+  if (prefill && Object.keys(prefill).length){
+    div.querySelector('.testOriginType').value = prefill.originType || '';
+    div.querySelector('.originNumber').value   = prefill.originNumber || '';
+    div.querySelector('.originOperator').value = prefill.originOperator || '';
+    div.querySelector('.testDate').value       = prefill.testDate || '';
+    div.querySelector('.testResult').value     = prefill.testResult || '';
+    div.querySelector('.testNote').value       = prefill.testNote || '';
+  }
+  renumberTests();
+  saveDraft();
+}
+function removeTest(btn){
+  const card = btn.closest('.test-card');
+  if (card) card.remove();
+  renumberTests();
+  saveDraft();
+}
+function renumberTests(){
+  const cards = document.querySelectorAll('#testsContainer .test-card');
+  cards.forEach((c, i) => {
+    const t = c.querySelector('.testTitle');
+    if (t) t.textContent = `Teste ${i + 1}`;
+  });
+  const badge = document.getElementById('testCount');
+  badge.textContent = `${cards.length} teste(s)`;
+  badge.classList.toggle('ok', cards.length >= 3);
+  badge.classList.toggle('warn', cards.length > 0 && cards.length < 3);
+
+  const warn = document.getElementById('testWarning');
+  if (cards.length >= 3){
+    warn.textContent = `✅ Mínimo recomendado atingido (${cards.length} testes).`;
+    warn.className = 'status saved';
+  } else if (cards.length === 0){
+    warn.textContent = 'Recomendado: ao menos 3 testes.';
+    warn.className = 'status';
+  } else {
+    warn.textContent = `Recomendado: ao menos 3 testes (${cards.length} registrado${cards.length === 1 ? '' : 's'}).`;
+    warn.className = 'status';
+  }
+}
+
+/* =========================================================
+   COLETA / VALIDAÇÃO
+   ========================================================= */
+function val(sel){ const el = document.querySelector(sel); return el ? el.value.trim() : ''; }
+
+function collectData(){
+  const tests = [...document.querySelectorAll('#testsContainer .test-card')].map(t => ({
+    originType:     t.querySelector('.testOriginType').value,
+    originNumber:   t.querySelector('.originNumber').value.trim(),
+    originOperator: t.querySelector('.originOperator').value,
+    testDate:       t.querySelector('.testDate').value,
+    testResult:     t.querySelector('.testResult').value,
+    testNote:       t.querySelector('.testNote').value.trim()
+  }));
+
+  return {
+    schema: 'cbmgo.193.failure-report/v2',
+    generatedAt: new Date().toISOString(),
+    identification: {
+      unit:         val('#unit'),
+      sector:       val('#sector'),
+      lineNumber:   val('#lineNumber'),
+      operator:     val('#operator'),
+      startDate:    val('#startDate'),
+      endDate:      val('#endDate'),
+      palliative:   val('#palliative'),
+      protocol:     val('#protocol'),
+      localContact: val('#localContact')
+    },
+    failure: {
+      type:    val('#failureType'),
+      details: val('#failureDetails'),
+      impact:  val('#impact')
+    },
+    tests
+  };
+}
+function validateForm(){
+  const form = document.getElementById('reportForm');
+  if (!form.reportValidity()){
+    toast('Preencha todos os campos obrigatórios (*).', 'err');
+    return false;
+  }
+  return true;
+}
+function updateFolderHint(){
+  const hint = document.getElementById('folderHint');
+  if (!hint) return;
+  const folder = monthFolderFromDate(val('#startDate'));
+  hint.innerHTML = `📁 Pasta mensal: <b>${folder}</b>`;
+}
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'startDate') updateFolderHint();
+});
+
+/* =========================================================
+   PDF
+   ========================================================= */
+function ensureSpace(doc, y, needed, margin = 12){
+  const ph = doc.internal.pageSize.getHeight();
+  if (y + needed > ph - margin){ doc.addPage(); return margin + 4; }
+  return y;
+}
+function addWrappedText(doc, text, x, y, maxWidth, lineHeight = 5){
+  const lines = doc.splitTextToSize(String(text ?? '—'), maxWidth);
+  let cy = y;
+  for (const line of lines){
+    cy = ensureSpace(doc, cy, lineHeight);
+    doc.text(line, x, cy);
+    cy += lineHeight;
+  }
+  return cy;
+}
+function addLabelValue(doc, label, value, x, y, maxWidth, lineHeight = 5){
+  const labelText = `${label}: `;
+  doc.setFont(undefined, 'bold');
+  const labelW = doc.getTextWidth(labelText);
+  const minValueW = 25;
+  const canPair = (labelW + minValueW) <= maxWidth;
+  if (canPair){
+    y = ensureSpace(doc, y, lineHeight);
+    doc.text(labelText, x, y);
+    doc.setFont(undefined, 'normal');
+    return addWrappedText(doc, value || '—', x + labelW, y, maxWidth - labelW, lineHeight);
+  }
+  y = ensureSpace(doc, y, lineHeight);
+  doc.text(labelText, x, y);
+  doc.setFont(undefined, 'normal');
+  y += lineHeight;
+  return addWrappedText(doc, value || '—', x, y, maxWidth, lineHeight);
+}
+function sectionTitle(doc, text, y){
+  y = ensureSpace(doc, y, 12);
+  doc.setFontSize(12);
+  doc.setTextColor(179, 0, 0);
+  doc.text(text, 10, y);
+  doc.setTextColor(0, 0, 0);
+  return y + 8;
+}
+async function exportPDF(){
+  if (!validateForm()) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const maxW = pageW - 20;
+
+  const r = collectData();
+  const now = new Date();
+  let y = 14;
+
+  doc.setFontSize(14);
+  doc.setTextColor(179, 0, 0);
+  doc.text('Relatório de Falhas — Linha de Emergência 193', 10, y);
+  doc.setTextColor(0, 0, 0);
+  y += 6;
+  doc.setFontSize(9);
+  doc.text('CBMGO — Corpo de Bombeiros Militar do Estado de Goiás / BM/6 (TIC)', 10, y);
+  y += 4;
+  doc.text(`Gerado em: ${fmtDateTime(now)}`, 10, y);
+  y += 8;
+
+  y = sectionTitle(doc, 'I. Identificação básica e descrição geral', y);
+  doc.setFontSize(10); doc.setFont(undefined, 'normal');
+
+  const idPairs = [
+    ['Unidade Operacional', r.identification.unit],
+    ['Setor afetado', r.identification.sector],
+    ['Número da linha / ramal', r.identification.lineNumber],
+    ['Operadora responsável', r.identification.operator],
+    ['Início da falha', fmtDateTime(r.identification.startDate)],
+    ['Fim da falha', fmtDateTime(r.identification.endDate)],
+    ['Medidas paliativas', r.identification.palliative || '—'],
+    ['Protocolo da operadora', r.identification.protocol || '—'],
+    ['Contato local', r.identification.localContact]
+  ];
+  for (const [label, value] of idPairs){
+    y = addLabelValue(doc, label, value, 10, y, maxW, 5);
+  }
+
+  y += 3;
+  y = sectionTitle(doc, 'II. Classificação e descrição específica da falha', y);
+  doc.setFontSize(10); doc.setFont(undefined, 'normal');
+
+  y = addWrappedText(doc, `Tipo de falha: ${r.failure.type || '—'}`, 10, y, maxW);
+  doc.setFont(undefined, 'bold');
+  y = addWrappedText(doc, 'Detalhes observados:', 10, y, maxW);
+  doc.setFont(undefined, 'normal');
+  y = addWrappedText(doc, r.failure.details || '—', 10, y, maxW);
+
+  if (r.failure.impact){
+    doc.setFont(undefined, 'bold');
+    y = addWrappedText(doc, 'Impacto operacional:', 10, y, maxW);
+    doc.setFont(undefined, 'normal');
+    y = addWrappedText(doc, r.failure.impact, 10, y, maxW);
+  }
+
+  y += 3;
+  y = sectionTitle(doc, `III. Testes realizados (${r.tests.length})`, y);
+  doc.setFontSize(10); doc.setFont(undefined, 'normal');
+
+  if (r.tests.length === 0){
+    y = addWrappedText(doc, '(Nenhum teste registrado.)', 10, y, maxW);
+  }
+  r.tests.forEach((t, i) => {
+    const estimated = 5 + 3 * 5 + 3;
+    y = ensureSpace(doc, y, estimated);
+    doc.setFont(undefined, 'bold');
+    doc.text(`${i + 1}) ${t.originType || '—'} — ${t.originNumber || '—'} (${t.originOperator || '—'})`, 10, y);
+    doc.setFont(undefined, 'normal');
+    y += 5;
+    y = addWrappedText(doc, `Data/hora: ${fmtDateTime(t.testDate)}`, 14, y, maxW - 4);
+    y = addWrappedText(doc, `Resultado: ${t.testResult || '—'}`, 14, y, maxW - 4);
+    if (t.testNote){
+      y = addWrappedText(doc, `Observação: ${t.testNote}`, 14, y, maxW - 4);
+    }
+    y += 3;
+  });
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++){
+    doc.setPage(p);
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Página ${p} de ${pageCount} — Relatório 193 / CBMGO`,
+             pageW / 2, pageH - 6, { align: 'center' });
+  }
+
+  const blob = doc.output('blob');
+  const unitSlug = (r.identification.unit || 'unidade').replace(/[^\w]+/g, '_');
+  const folder   = monthFolderFromDate(r.identification.startDate);
+  const stamp    = fileStamp(now);
+  const filename = `Relatorio_193_${unitSlug}_${stamp}.pdf`;
+  await saveWithMonthlyFolder(blob, folder, filename, 'application/pdf');
+}
+
+/* =========================================================
+   JSON — export / import
+   ========================================================= */
+async function downloadJSON(){
+  const data = collectData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const folder = monthFolderFromDate(data.identification.startDate);
+  const filename = `relatorio_193_${fileStamp()}.json`;
+  await saveWithMonthlyFolder(blob, folder, filename, 'application/json');
+}
+document.getElementById('importFile').addEventListener('change', (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      loadData(data);
+      toast('Relatório carregado com sucesso.', 'ok');
+    } catch (err){
+      toast('Arquivo JSON inválido: ' + err.message, 'err');
+    }
+    ev.target.value = '';
+  };
+  reader.readAsText(file);
+});
+function loadData(data){
+  if (!data || typeof data !== 'object') return;
+  const id = data.identification || {};
+  setVal('#unit', id.unit);
+  setVal('#sector', id.sector);
+  setVal('#lineNumber', id.lineNumber);
+  setVal('#operator', id.operator);
+  setVal('#startDate', id.startDate);
+  setVal('#endDate', id.endDate);
+  setVal('#palliative', id.palliative);
+  setVal('#protocol', id.protocol);
+  setVal('#localContact', id.localContact);
+
+  const f = data.failure || {};
+  setVal('#failureType', f.type);
+  setVal('#failureDetails', f.details);
+  setVal('#impact', f.impact);
+
+  const container = document.getElementById('testsContainer');
+  container.innerHTML = '';
+  const tests = Array.isArray(data.tests) ? data.tests : [];
+  if (tests.length === 0) addTest();
+  else tests.forEach(addTest);
+  renumberTests();
+  saveDraft();
+  updateFolderHint();
+}
+function setVal(sel, value){
+  const el = document.querySelector(sel);
+  if (!el || value == null) return;
+  if (el.tagName === 'SELECT'){
+    const opt = [...el.options].find(o => o.value === value);
+    if (opt) el.value = value;
+  } else el.value = value;
+}
+
+/* =========================================================
+   AUTOSAVE
+   ========================================================= */
+let saveTimer = null;
+function saveDraft(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      const data = collectData();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      const s = document.getElementById('autosaveStatus');
+      s.textContent = '💾 Salvo ' + fmtDateTime(new Date()).slice(-5);
+      s.className = 'status saved';
+    } catch (e){
+      const s = document.getElementById('autosaveStatus');
+      s.textContent = 'Não foi possível salvar: ' + e.message;
+      s.className = 'status error';
+    }
+  }, 400);
+}
+function restoreDraft(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    loadData(JSON.parse(raw));
+    return true;
+  } catch (e){ console.warn('Falha ao restaurar rascunho:', e); return false; }
+}
+function clearForm(confirmFirst){
+  if (confirmFirst && !confirm('Limpar todos os dados do formulário? Esta ação não pode ser desfeita.')) return;
+  document.getElementById('reportForm').reset();
+  document.getElementById('testsContainer').innerHTML = '';
+  addTest();
+  localStorage.removeItem(STORAGE_KEY);
+  const s = document.getElementById('autosaveStatus');
+  s.textContent = ''; s.className = 'status';
+  updateFolderHint();
+}
+document.getElementById('reportForm').addEventListener('input', saveDraft);
+document.getElementById('reportForm').addEventListener('change', saveDraft);
+
+/* =========================================================
+   INICIALIZAÇÃO
+   ========================================================= */
+(function init(){
+  // ---- Tema (aplicar + ligar botão) ----
+  const savedTheme = (() => { try { return localStorage.getItem(THEME_KEY); } catch(_) { return null; } })();
+  applyTheme(savedTheme === 'dark' ? 'dark' : 'light');
+  const tb = document.getElementById('themeBtn');
+  if (tb) tb.addEventListener('click', toggleTheme);
+
+  // ---- Abas ----
+  renderTabs();
+
+  // ---- PWA ----
+  updateInstallUI();
+  if ('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(() => { /* silencioso */ });
+  }
+
+  // ---- Formulário ----
+  const restored = restoreDraft();
+  if (!restored) addTest();
+  renumberTests();
+
+  const start = document.getElementById('startDate');
+  if (!start.value) start.value = nowLocalISO();
+  updateFolderHint();
+})();
+</script>
+
+</body>
+</html>
