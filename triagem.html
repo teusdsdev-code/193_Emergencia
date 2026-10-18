@@ -9,7 +9,6 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E">
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E">
 
-  <!-- Tema aplicado ANTES do 1º paint (mesma chave do index.html) -->
   <script>
     (function(){
       try {
@@ -19,7 +18,6 @@
         } else if (saved === 'dark') {
           document.documentElement.classList.add('dark');
         } else {
-          /* default do app de triagem: escuro (ambiente de COB) */
           document.documentElement.classList.add('dark');
         }
       } catch(_) {
@@ -29,7 +27,7 @@
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <script> tailwind.config = { darkMode: 'class' } </script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
@@ -51,40 +49,24 @@
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen pb-20 lg:pb-8 font-sans transition-colors duration-200 select-none">
 
-  <!-- Cabeçalho -->
   <header class="bg-red-700 dark:bg-red-900 text-white shadow-lg sticky top-0 z-40 no-print">
-
-    <!-- ★ Barra de apps (troca entre index.html e triagem.html) -->
     <div class="bg-red-900 dark:bg-red-950 border-b border-red-800 dark:border-red-900">
       <div class="max-w-7xl mx-auto px-3 py-1.5 flex items-center justify-between gap-2">
         <nav class="flex gap-1 overflow-x-auto" aria-label="Trocar aplicativo">
-          <a href="./index.html"
-             class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-950/60 text-red-100 hover:bg-red-950 whitespace-nowrap transition">
-            📋 Relatório 193
-          </a>
-          <a href="./triagem.html" aria-current="page"
-             class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white text-red-700 whitespace-nowrap shadow">
-            🚑 Triagem
-          </a>
+          <a href="./index.html" class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-950/60 text-red-100 hover:bg-red-950 whitespace-nowrap transition">📋 Relatório 193</a>
+          <a href="./triagem.html" aria-current="page" class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white text-red-700 whitespace-nowrap shadow">🚑 Triagem</a>
         </nav>
-        <button id="installBtnTriagem" type="button"
-                class="px-2 py-1 rounded-md bg-red-950/60 hover:bg-red-950 text-[11px] font-bold whitespace-nowrap transition"
-                title="Instalar aplicativo" hidden>
-          📲 Instalar
-        </button>
+        <button id="installBtnTriagem" type="button" class="px-2 py-1 rounded-md bg-red-950/60 hover:bg-red-950 text-[11px] font-bold whitespace-nowrap transition" title="Instalar aplicativo" hidden>📲 Instalar</button>
       </div>
     </div>
 
-    <!-- Conteúdo original do header -->
     <div class="max-w-7xl mx-auto px-3 py-2.5 flex flex-wrap justify-between items-center gap-2">
       <div class="flex items-center space-x-2.5">
         <span class="text-2xl md:text-3xl">🚒</span>
         <div>
           <div class="flex items-center space-x-2">
             <h1 class="text-base md:text-xl font-black tracking-wider uppercase">COB 193</h1>
-            <span id="status-conexao" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-              ⏳ Conectando...
-            </span>
+            <span id="status-conexao" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">⏳ Conectando...</span>
             <span id="timer-triagem" class="hidden text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-400 text-slate-900"></span>
           </div>
           <p class="text-[11px] text-red-200" id="info-cache">Sincronizando banco...</p>
@@ -92,28 +74,17 @@
       </div>
 
       <div class="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pt-1 sm:pt-0">
-        <button onclick="alternarAba('triagem')" id="tab-triagem" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-white text-red-700 shadow whitespace-nowrap">
-          🎧 Triagem Rápida
-        </button>
-        <button onclick="alternarAba('viaturas')" id="tab-viaturas" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap">
-          🚒 Viaturas & Guarnição
-        </button>
-        <button onclick="alternarAba('cadastros')" id="tab-cadastros" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap">
-          ⚙️ Banco (<span id="badge-total-banco">0</span>)
-        </button>
-        <button onclick="sincronizarComSupabase(true)" class="p-2 rounded-lg text-xs font-bold bg-red-800 hover:bg-red-950 text-white" title="Sincronizar com Supabase">
-          🔄
-        </button>
-        <button onclick="alternarTema()" id="btn-tema" class="p-2 rounded-lg bg-red-800 hover:bg-red-950 text-white text-xs" title="Alternar tema">
-          <span id="icone-tema">🌙</span>
-        </button>
+        <button onclick="alternarAba('triagem')" id="tab-triagem" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-white text-red-700 shadow whitespace-nowrap">🎧 Triagem Rápida</button>
+        <button onclick="alternarAba('viaturas')" id="tab-viaturas" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap">🚒 Viaturas & Guarnição</button>
+        <button onclick="alternarAba('cadastros')" id="tab-cadastros" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap">⚙️ Banco (<span id="badge-total-banco">0</span>)</button>
+        <button onclick="sincronizarComSupabase(true)" class="p-2 rounded-lg text-xs font-bold bg-red-800 hover:bg-red-950 text-white" title="Sincronizar com Supabase">🔄</button>
+        <button onclick="alternarTema()" id="btn-tema" class="p-2 rounded-lg bg-red-800 hover:bg-red-950 text-white text-xs" title="Alternar tema"><span id="icone-tema">🌙</span></button>
       </div>
     </div>
   </header>
 
   <main class="max-w-7xl mx-auto p-3 md:p-5">
 
-    <!-- ALERTA GLOBAL RED FLAG -->
     <div id="alerta-red-flag" class="hidden mb-4 bg-red-600 text-white p-3.5 rounded-xl shadow-lg border-2 border-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-pulse no-print">
       <div class="flex items-center space-x-3">
         <span class="text-2xl">🚨</span>
@@ -137,9 +108,7 @@
               <h2 class="text-sm md:text-base font-black text-red-600 dark:text-red-400 uppercase">1. Triagem de Sintomas / Situação</h2>
               <p class="text-[11px] text-slate-400">Digite 2 letras ou selecione a natureza (os sintomas já usados somem da lista).</p>
             </div>
-            <button onclick="limparChamado()" class="text-xs bg-red-100 dark:bg-red-950 hover:bg-red-200 text-red-700 dark:text-red-300 px-3 py-1.5 rounded-lg font-black transition">
-              🗑️ Limpar Tudo (F4)
-            </button>
+            <button onclick="limparChamado()" class="text-xs bg-red-100 dark:bg-red-950 hover:bg-red-200 text-red-700 dark:text-red-300 px-3 py-1.5 rounded-lg font-black transition">🗑️ Limpar Tudo (F4)</button>
           </div>
 
           <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mb-3">
@@ -151,16 +120,7 @@
           </div>
 
           <div class="relative mb-3">
-            <input
-              type="text"
-              id="input-busca-sintoma"
-              onfocus="mostrarListaSugestoes()"
-              oninput="filtrarSugestoesSintomas()"
-              onkeydown="atalhoEnterSintoma(event)"
-              placeholder="Digite o sintoma (ex: dor, resp, sangue...) e aperte Enter..."
-              autocomplete="off"
-              class="w-full border-2 border-red-400 dark:border-red-500 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-red-600 outline-none font-semibold"
-            >
+            <input type="text" id="input-busca-sintoma" onfocus="mostrarListaSugestoes()" oninput="filtrarSugestoesSintomas()" onkeydown="atalhoEnterSintoma(event)" placeholder="Digite o sintoma (ex: dor, resp, sangue...) e aperte Enter..." autocomplete="off" class="w-full border-2 border-red-400 dark:border-red-500 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-red-600 outline-none font-semibold">
             <ul id="dropdown-sugestoes" class="hidden absolute z-30 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg shadow-xl divide-y dark:divide-slate-600 text-sm"></ul>
           </div>
 
@@ -183,10 +143,52 @@
             <div class="sm:col-span-2">
               <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">📍 Endereço / Ponto de Referência</label>
               <div class="flex space-x-1.5">
-                <input type="text" id="solicitante-end" oninput="atualizarRelatorio()" placeholder="Digite ou clique em Falar..." class="w-full border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm font-semibold outline-none">
+                <input type="text" id="solicitante-end" oninput="atualizarRelatorio()" placeholder="Digite ou use o endereço estruturado abaixo..." class="w-full border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm font-semibold outline-none">
                 <button type="button" onclick="ditarPorVoz('solicitante-end', this)" class="bg-red-600 hover:bg-red-700 text-white px-3.5 rounded-lg font-bold text-xs flex items-center space-x-1 shrink-0 shadow" title="Falar endereço">
                   <span>🎤</span><span>Falar</span>
                 </button>
+              </div>
+
+              <!-- 🏙️ ENDEREÇO ESTRUTURADO -->
+              <div class="mt-2">
+                <div class="flex justify-between items-center">
+                  <button type="button" onclick="togglePainelEstruturado()" class="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-red-600 flex items-center gap-1">
+                    🏙️ <span>Endereço Estruturado</span>
+                    <span id="icone-toggle-estruturado" class="text-[10px]">▼</span>
+                  </button>
+                  <span id="badge-cidade-ativa" class="text-[10px] text-slate-400 italic"></span>
+                </div>
+                <div id="painel-endereco-estruturado" class="hidden mt-2 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 space-y-2">
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                      <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">🏙️ Cidade</label>
+<input type="text" id="est-cidade" autocomplete="off"
+oninput="onInputCidadeEstruturada()" placeholder="Digite a cidade..."
+class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">🏘️ Bairro</label>
+<input type="text" id="est-bairro" autocomplete="off"
+oninput="onInputBairroEstruturado()" placeholder="Digite o bairro..." disabled
+class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">🛣️ Rua</label>
+<input type="text" id="est-rua" oninput="onInputRuaEstruturada()" placeholder="Digite a rua..." disabled class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">#️⃣ Número</label>
+                      <div class="flex gap-1">
+                        <input type="text" id="est-numero" oninput="onInputRuaEstruturada()" placeholder="123" disabled class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                        <button type="button" onclick="marcarSemNumero()" class="text-[10px] bg-slate-200 dark:bg-slate-700 px-2 rounded font-bold shrink-0">S/N</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex justify-between items-center pt-1">
+                    <p class="text-[10px] text-slate-500 italic">Preenche o campo acima automaticamente</p>
+                    <button type="button" onclick="limparEnderecoEstruturado()" class="text-[10px] text-red-600 dark:text-red-400 font-bold hover:underline">🧹 Limpar campos</button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -203,12 +205,8 @@
 
           <div class="p-2.5 bg-blue-50 dark:bg-slate-900/80 border border-blue-200 dark:border-slate-700 rounded-xl flex flex-wrap items-center justify-between gap-2">
             <div class="flex flex-wrap gap-1.5">
-              <button type="button" onclick="pedirLocalizacaoWhatsApp()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg">
-                📲 Pedir GPS no Zap
-              </button>
-              <button type="button" onclick="gerarLinkMapsPeloEndereco()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg">
-                🗺️ Gerar Maps pelo Endereço
-              </button>
+              <button type="button" onclick="pedirLocalizacaoWhatsApp()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg">📲 Pedir GPS no Zap</button>
+              <button type="button" onclick="gerarLinkMapsPeloEndereco()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg">🗺️ Gerar Maps pelo Endereço</button>
             </div>
             <input type="url" id="solicitante-link-gps" oninput="atualizarRelatorio()" placeholder="Cole aqui o link GPS..." class="w-full border border-blue-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg p-1.5 text-xs outline-none">
           </div>
@@ -223,7 +221,6 @@
                 <button type="button" onclick="setIdadeRapida('Idoso')" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-bold">🧓 Idoso</button>
               </div>
             </div>
-
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <input type="text" id="vitima-idade" oninput="atualizarRelatorio()" placeholder="Idade (ex: Adulto)" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2 text-xs font-semibold outline-none">
               <select id="vitima-peso" onchange="atualizarRelatorio()" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2 text-xs font-semibold outline-none">
@@ -293,9 +290,7 @@
               <div>
                 <h3 class="font-black text-base uppercase text-slate-900 dark:text-white">Ficha de Despacho 193</h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400">Corpo de Bombeiros Militar - COB</p>
-                <p class="text-[11px] font-bold text-red-700 dark:text-red-400 mt-0.5">
-                  Protocolo: <span id="rel-protocolo">—</span>
-                </p>
+                <p class="text-[11px] font-bold text-red-700 dark:text-red-400 mt-0.5">Protocolo: <span id="rel-protocolo">—</span></p>
               </div>
               <span id="rel-datahora" class="text-[11px] font-mono bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded"></span>
             </div>
@@ -324,9 +319,7 @@
 
             <div>
               <h4 class="font-bold uppercase text-[11px] text-slate-500 dark:text-slate-400 border-b dark:border-slate-700 pb-1 mb-1">Viaturas & Guarnição Empenhada:</h4>
-              <div id="rel-lista-viaturas" class="text-xs font-semibold text-red-700 dark:text-red-400">
-                Nenhuma viatura selecionada
-              </div>
+              <div id="rel-lista-viaturas" class="text-xs font-semibold text-red-700 dark:text-red-400">Nenhuma viatura selecionada</div>
             </div>
 
             <div class="no-print pt-1">
@@ -370,17 +363,13 @@
                   <option value="Auto Salvamento Avançado (ASA)">🛟 Auto Salvamento (ASA)</option>
                 </select>
               </div>
-              <button type="submit" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg transition text-sm">
-                + Salvar Viatura no Banco
-              </button>
+              <button type="submit" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg transition text-sm">+ Salvar Viatura no Banco</button>
             </form>
           </div>
 
           <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
             <h3 class="text-sm font-bold border-b dark:border-slate-700 pb-2">🧹 Gerenciar Turno / Plantão</h3>
-            <button onclick="limparTodasGuarnicoes()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-lg text-xs transition">
-              🧹 Limpar Todas as Guarnições do Plantão
-            </button>
+            <button onclick="limparTodasGuarnicoes()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-lg text-xs transition">🧹 Limpar Todas as Guarnições do Plantão</button>
           </div>
         </div>
 
@@ -418,15 +407,11 @@
             <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Nome do Sintoma ou Situação</label>
             <input type="text" id="cad-sintoma-nome" required placeholder="Ex: Vítima inconsciente..." class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
           </div>
-
           <label class="flex items-center space-x-2.5 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 cursor-pointer">
             <input type="checkbox" id="cad-sintoma-redflag" class="w-4 h-4 text-red-600 rounded">
             <span class="block text-xs font-black uppercase text-red-700 dark:text-red-300">🚨 Sintoma "Red Flag" (Despacho Imediato)</span>
           </label>
-
-          <button type="submit" id="btn-submit-sintoma" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg transition text-sm">
-            Gravar Sintoma no Supabase
-          </button>
+          <button type="submit" id="btn-submit-sintoma" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg transition text-sm">Gravar Sintoma no Supabase</button>
         </form>
 
         <div class="mt-6">
@@ -475,9 +460,7 @@
               <div id="checkboxes-sintomas-cadastro" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto border dark:border-slate-700 rounded-lg p-3 bg-slate-50 dark:bg-slate-900 text-xs"></div>
             </div>
 
-            <button type="submit" id="btn-submit-diag" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-3 rounded-lg shadow transition text-sm">
-              Gravar Diagnóstico no Supabase
-            </button>
+            <button type="submit" id="btn-submit-diag" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-3 rounded-lg shadow transition text-sm">Gravar Diagnóstico no Supabase</button>
           </form>
         </div>
 
@@ -486,11 +469,81 @@
           <ul id="lista-admin-diagnosticos" class="max-h-64 overflow-y-auto divide-y dark:divide-slate-700 border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></ul>
         </div>
       </div>
+
+      <!-- 🏙️ LOCALIDADES ADMIN -->
+      <div class="md:col-span-12 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
+          <h2 class="text-base font-bold">🏙️ 3. Gerenciar Localidades (Cidade → Bairro → Rua)</h2>
+          <span class="text-xs text-slate-400">Sincronizado com Supabase</span>
+        </div>
+
+        <div class="flex flex-wrap gap-2 mb-4 border-b dark:border-slate-700 pb-2">
+          <button onclick="trocarTabLocalidade('cidades')" id="tab-loc-cidades" class="text-xs font-bold px-3 py-1.5 rounded bg-red-600 text-white">🏙️ Cidades</button>
+          <button onclick="trocarTabLocalidade('bairros')" id="tab-loc-bairros" class="text-xs font-bold px-3 py-1.5 rounded bg-slate-200 dark:bg-slate-700">🏘️ Bairros</button>
+          <button onclick="trocarTabLocalidade('ruas')" id="tab-loc-ruas" class="text-xs font-bold px-3 py-1.5 rounded bg-slate-200 dark:bg-slate-700">🛣️ Ruas</button>
+        </div>
+
+        <div id="loc-panel-cidades">
+          <form onsubmit="salvarCidade(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+            <input type="text" id="cad-cidade-nome" required placeholder="Nome da cidade" class="sm:col-span-2 border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <input type="text" id="cad-cidade-uf" required maxlength="2" placeholder="UF" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm uppercase">
+            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg text-sm">+ Adicionar</button>
+          </form>
+          <div id="lista-admin-cidades" class="max-h-72 overflow-y-auto border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></div>
+        </div>
+
+        <div id="loc-panel-bairros" class="hidden">
+          <form onsubmit="salvarBairro(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+<input type="text" id="cad-bairro-cidade" autocomplete="off" required placeholder="Digite a cidade..." class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <input type="text" id="cad-bairro-nome" required placeholder="Nome do bairro" class="sm:col-span-2 border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg text-sm">+ Adicionar</button>
+          </form>
+          <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 p-3 rounded-lg mb-3">
+            <label class="block text-xs font-bold uppercase text-emerald-900 dark:text-emerald-300 mb-1">
+              📥 Importar bairros em massa (1 por linha ou separados por <code>;</code>)
+
+            </label>
+            <textarea id="import-bairros-lista" rows="3"
+            placeholder="Centro&#10;Jardim América&#10;Vila Nova&#10;Santa Maria&#10;São José"
+            class="w-full border border-emerald-300 dark:border-emerald-700 rounded-lg p-2 text-xs bg-white dark:bg-slate-800 font-mono"></textarea>
+            <button type="button" onclick="importarBairrosEmMassa()"
+            class="mt-2 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg">
+            📥 Importar para esta cidade
+          </button>
+        </div>
+          <div id="lista-admin-bairros" class="max-h-72 overflow-y-auto border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></div>
+        </div>
+
+        <div id="loc-panel-ruas" class="hidden">
+<form onsubmit="salvarRua(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+<input type="text" id="cad-rua-cidade" autocomplete="off" required
+  oninput="renderizarAdminRuas()" placeholder="Digite a cidade..."
+  class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+
+<input type="text" id="cad-rua-bairro" autocomplete="off" required
+  oninput="renderizarAdminRuas()" placeholder="Digite o bairro..."
+  class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+  <datalist id="datalist-cad-bairros"></datalist>
+
+  <input type="text" id="cad-rua-nome" required placeholder="Nome da rua"
+    class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+
+  <button type="submit" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg text-sm">+ Adicionar</button>
+</form>
+          <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 p-3 rounded-lg mb-3">
+            <label class="block text-xs font-bold uppercase text-emerald-900 dark:text-emerald-300 mb-1">
+              📥 Importar em massa (1 rua por linha ou separadas por <code>;</code>)
+            </label>
+            <textarea id="import-ruas-lista" rows="3" placeholder="Rua das Flores&#10;Av. Central&#10;Rua São João&#10;&#10;ou: Rua das Flores; Av. Central; Rua São João" class="w-full border border-emerald-300 dark:border-emerald-700 rounded-lg p-2 text-xs bg-white dark:bg-slate-800 font-mono"></textarea>
+            <button type="button" onclick="importarRuasEmMassa()" class="mt-2 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg">📥 Importar para este bairro</button>
+          </div>
+          <div id="lista-admin-ruas" class="max-h-72 overflow-y-auto border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></div>
+        </div>
+      </div>
     </section>
 
   </main>
 
-  <!-- BARRA INFERIOR CELULAR -->
   <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900 text-white p-2.5 border-t border-slate-700 flex justify-around items-center z-50 no-print shadow-2xl">
     <button onclick="copiarRelatorio()" class="flex items-center space-x-1 bg-emerald-600 px-3 py-2 rounded-lg text-xs font-bold"><span>📑 Copiar</span></button>
     <button onclick="enviarGrupoOperacoesConjuntas()" class="flex items-center space-x-1 bg-green-700 px-3 py-2 rounded-lg text-xs font-bold"><span>📢 Grupo Op.</span></button>
@@ -519,9 +572,16 @@
     let timerInicio = null;
     let timerInterval = null;
 
+    // Localidades
+    let bancoCidades = [];
+    let bancoBairrosLocalidades = [];
+    let cacheRuas = {};
+    let usoBairrosLocais = JSON.parse(localStorage.getItem('cobom_bairros_uso') || '{}');
+
     // =========================================================================
-    // 2. UTILITÁRIOS (Toast, Timer, Protocolo, Telefone)
+    // 2. UTILITÁRIOS
     // =========================================================================
+    let toastSlot = 0;
     function mostrarToast(msg, tipo = 'info') {
       const cores = {
         info:    'bg-slate-800 border-slate-600',
@@ -529,15 +589,17 @@
         erro:    'bg-red-600 border-red-400',
         aviso:   'bg-amber-500 border-amber-300 text-slate-900'
       };
+      const slot = toastSlot++ % 4;
       const toast = document.createElement('div');
-      toast.className = `toast-cobom fixed top-20 right-4 z-[100] ${cores[tipo]} text-white px-4 py-3 rounded-lg shadow-2xl font-bold text-sm max-w-xs border-l-4`;
+      toast.className = `toast-cobom fixed right-4 z-[100] ${cores[tipo]} text-white px-4 py-3 rounded-lg shadow-2xl font-bold text-sm max-w-xs border-l-4`;
+      toast.style.top = `${80 + slot * 72}px`;
       toast.textContent = msg;
       document.body.appendChild(toast);
       setTimeout(() => {
         toast.style.transition = 'opacity .3s, transform .3s';
         toast.style.opacity = '0';
         toast.style.transform = 'translateX(120%)';
-        setTimeout(() => toast.remove(), 320);
+        setTimeout(() => { toast.remove(); toastSlot = Math.max(0, toastSlot - 1); }, 320);
       }, 2800);
     }
 
@@ -546,6 +608,20 @@
       if (limpo.length === 11) return limpo.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
       if (limpo.length === 10) return limpo.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
       return tel;
+    }
+
+function removerAcentos(s) {
+return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+function normalizarTexto(s) {
+  return removerAcentos(s).trim().toLowerCase();
+}
+
+    function comTimeout(promise, ms = 8000) {
+      return Promise.race([
+        promise,
+        new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout de conexão')), ms))
+      ]);
     }
 
     function gerarProtocolo() {
@@ -584,8 +660,19 @@
       if (el) { el.classList.add('hidden'); el.textContent = ''; }
     }
 
+    function limparChavesProtocoloAntigas() {
+      const hoje = new Date();
+      const hojeStr = `${hoje.getFullYear()}${String(hoje.getMonth()+1).padStart(2,'0')}${String(hoje.getDate()).padStart(2,'0')}`;
+      Object.keys(localStorage)
+        .filter(k => /^cobom_seq_\d{8}$/.test(k))
+        .forEach(k => {
+          const data = k.replace('cobom_seq_', '');
+          if (data < hojeStr) localStorage.removeItem(k);
+        });
+    }
+
     // =========================================================================
-    // 2.B TEMA — mesma chave do index.html
+    // 2.B TEMA
     // =========================================================================
     function atualizarIconeTema() {
       const icon = document.getElementById('icone-tema');
@@ -601,36 +688,38 @@
     }
 
     // =========================================================================
-    // 2.C PWA — instalação + service worker
+    // 2.C PWA — consolidado
     // =========================================================================
-    let deferredPrompt = null;
-    const installBtn = document.getElementById('installBtnTriagem');
-    function isStandalone() {
-      return window.matchMedia('(display-mode: standalone)').matches ||
-             window.navigator.standalone === true;
-    }
-    function updateInstallUI() {
+    function initPWA() {
+      const installBtn = document.getElementById('installBtnTriagem');
       if (!installBtn) return;
-      installBtn.hidden = isStandalone();
-    }
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      updateInstallUI();
-    });
-    window.addEventListener('appinstalled', () => {
-      deferredPrompt = null;
-      updateInstallUI();
-      mostrarToast('Aplicativo instalado! ✅', 'sucesso');
-    });
-    if (installBtn) {
+
+      const isStandalone = () =>
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
+
+      const updateUI = () => { installBtn.hidden = isStandalone(); };
+      updateUI();
+
+      let deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        updateUI();
+      });
+      window.addEventListener('appinstalled', () => {
+        deferredPrompt = null;
+        updateUI();
+        mostrarToast('Aplicativo instalado! ✅', 'sucesso');
+      });
+
       installBtn.addEventListener('click', async () => {
         if (isStandalone()) return;
         if (deferredPrompt) {
           deferredPrompt.prompt();
           try { await deferredPrompt.userChoice; } catch(_){}
           deferredPrompt = null;
-          updateInstallUI();
+          updateUI();
           return;
         }
         alert(
@@ -640,22 +729,27 @@
           '• Desktop (Chrome/Edge): ícone de instalação na barra de endereços.'
         );
       });
-    }
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(() => { /* silencioso */ });
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
     }
 
     // =========================================================================
     // 3. INICIALIZAÇÃO
     // =========================================================================
     window.addEventListener('DOMContentLoaded', async () => {
-      // Tema já foi aplicado no <head>. Só atualiza o ícone.
       atualizarIconeTema();
-      updateInstallUI();
+      initPWA();
+      limparChavesProtocoloAntigas();
+      inicializarAutocompletes();
 
       document.getElementById('rel-datahora').innerText = new Date().toLocaleString('pt-BR');
 
+      restaurarEstadoPainelEstruturado();
+
       await sincronizarComSupabase(false);
+      await sincronizarLocalidades();
       atualizarRelatorio();
 
       document.addEventListener('click', (e) => {
@@ -667,14 +761,39 @@
       });
 
       document.addEventListener('keydown', (e) => {
+        const tag = document.activeElement?.tagName;
+        const editando = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
         if (e.key === 'F1') { e.preventDefault(); alternarAba('triagem'); }
-        if (e.key === 'F2') { e.preventDefault(); copiarRelatorio(); }
-        if (e.key === 'F4') { e.preventDefault(); limparChamado(); }
+        if (e.key === 'F2' && !editando) { e.preventDefault(); copiarRelatorio(); }
+        if (e.key === 'F4' && !editando) { e.preventDefault(); limparChamado(); }
+      });
+
+      // Auto-foco no campo de sintomas
+      document.getElementById('input-busca-sintoma')?.focus();
+
+      // Aviso ao sair com chamado em andamento
+      window.addEventListener('beforeunload', (e) => {
+        const emAndamento =
+          sintomasSelecionadosIds.length > 0 ||
+          document.getElementById('solicitante-end').value.trim() ||
+          viaturasEmpenhadasIds.length > 0;
+        if (emAndamento) { e.preventDefault(); e.returnValue = ''; }
+      });
+
+      // Sync entre abas
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'cbmgo193.theme') atualizarIconeTema();
+        if (e.key === 'cobom_guarnicoes_memoria') {
+          guarnicoesMemoria = JSON.parse(e.newValue || '{}');
+          renderizarViaturasEGuarnicao();
+          renderizarSelecaoViaturasTriagem();
+          atualizarRelatorio();
+        }
       });
     });
 
     // =========================================================================
-    // 4. SYNC (paralelo + detecção real de erro)
+    // 4. SYNC
     // =========================================================================
     async function sincronizarComSupabase(mostrarAlerta = false) {
       const badge = document.getElementById('status-conexao');
@@ -685,9 +804,9 @@
         badge.innerText = "🔄 Sincronizando...";
 
         const [resSintomas, resDiagnosticos, resViaturas] = await Promise.all([
-          supabaseClient.from('sintomas').select('*').order('nome'),
-          supabaseClient.from('diagnosticos').select('*, diagnostico_sintomas(sintoma_id)').order('titulo'),
-          supabaseClient.from('viaturas').select('*').order('unidade').order('prefixo')
+          comTimeout(supabaseClient.from('sintomas').select('*').order('nome')),
+          comTimeout(supabaseClient.from('diagnosticos').select('*, diagnostico_sintomas(sintoma_id)').order('titulo')),
+          comTimeout(supabaseClient.from('viaturas').select('*').order('unidade').order('prefixo'))
         ]);
 
         const houveErro = resSintomas.error || resDiagnosticos.error || resViaturas.error;
@@ -737,7 +856,7 @@
         carregarDoCacheLocal('Modo Offline (Cache)');
         badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white";
         badge.innerText = "🔴 Offline (cache)";
-        if (mostrarAlerta) mostrarToast('Sem conexão. Usando cache local.', 'erro');
+        if (mostrarAlerta) mostrarToast(err.message || 'Sem conexão. Usando cache local.', 'erro');
       }
     }
 
@@ -787,7 +906,7 @@
     }
 
     // =========================================================================
-    // 6. AUTOCOMPLETE
+    // 6. AUTOCOMPLETE + NATUREZA
     // =========================================================================
     function selecionarNaturezaRapida(cat) {
       naturezaSelecionada = cat;
@@ -801,6 +920,7 @@
         }
       });
       filtrarSugestoesSintomas();
+      processarTriagem();   // ★ CORREÇÃO: re-renderiza hipóteses
       atualizarRelatorio();
     }
 
@@ -809,47 +929,51 @@
       document.getElementById('dropdown-sugestoes').classList.remove('hidden');
     }
 
-    function filtrarSugestoesSintomas() {
-      const termo = (document.getElementById('input-busca-sintoma').value || '').toLowerCase().trim();
-      const dropdown = document.getElementById('dropdown-sugestoes');
+function filtrarSugestoesSintomas() {
+  const termoOriginal = (document.getElementById('input-busca-sintoma').value || '').trim();
+  const termo = normalizarTexto(termoOriginal);
+  const dropdown = document.getElementById('dropdown-sugestoes');
 
-      sugestoesAtuais = bancoSintomas.filter(s => {
-        const bateCat = naturezaSelecionada === 'TODAS' || s.categoria === naturezaSelecionada;
-        const naoSelecionado = !sintomasSelecionadosIds.includes(s.id);
-        const bateTermo = !termo || s.nome.toLowerCase().includes(termo) || s.categoria.toLowerCase().includes(termo);
-        return bateCat && naoSelecionado && bateTermo;
-      });
+  sugestoesAtuais = bancoSintomas.filter(s => {
+    const bateCat = naturezaSelecionada === 'TODAS' || s.categoria === naturezaSelecionada;
+    const naoSelecionado = !sintomasSelecionadosIds.includes(s.id);
+    const nomeNorm = normalizarTexto(s.nome);
+    const catNorm = normalizarTexto(s.categoria);
+    const bateTermo = !termo || nomeNorm.includes(termo) || catNorm.includes(termo);
+    return bateCat && naoSelecionado && bateTermo;
+  });
 
-      if (sugestoesAtuais.length === 0) {
-        if (termo.length >= 3) {
-          const catPadrao = naturezaSelecionada === 'TODAS' ? 'CLINICA' : naturezaSelecionada;
-          dropdown.innerHTML = `
-            <li>
-              <button onclick="irParaCadastroDeSintoma('${termo.replace(/'/g, "\\'")}', '${catPadrao}')" class="w-full text-left p-3 hover:bg-emerald-50 dark:hover:bg-slate-600 cursor-pointer flex items-center gap-2 transition">
-                <span class="text-lg">➕</span>
-                <div>
-                  <div class="font-bold text-xs text-emerald-700 dark:text-emerald-400">Cadastrar novo sintoma</div>
-                  <div class="text-[11px] text-slate-500">"${termo}" em [${catPadrao}]</div>
-                </div>
-              </button>
-            </li>`;
-        } else {
-          dropdown.innerHTML = `<li class="p-3 text-xs text-slate-400 italic">Nenhum sintoma encontrado. Digite 3+ letras para cadastrar.</li>`;
-        }
-      } else {
-        dropdown.innerHTML = sugestoesAtuais.map((s, idx) => `
-          <li onclick="adicionarSintomaTag('${s.id}')" class="p-2.5 hover:bg-red-50 dark:hover:bg-slate-600 cursor-pointer flex justify-between items-center transition ${idx === 0 ? 'bg-red-50/50 dark:bg-slate-600/40' : ''}">
+  if (sugestoesAtuais.length === 0) {
+    if (termo.length >= 3) {
+      const catPadrao = naturezaSelecionada === 'TODAS' ? 'CLINICA' : naturezaSelecionada;
+      const termoSeguro = termoOriginal.replace(/'/g, "\\'");
+      dropdown.innerHTML = `
+        <li>
+          <button onclick="irParaCadastroDeSintoma('${termoSeguro}', '${catPadrao}')" class="w-full text-left p-3 hover:bg-emerald-50 dark:hover:bg-slate-600 cursor-pointer flex items-center gap-2 transition">
+            <span class="text-lg">➕</span>
             <div>
-              ${s.red_flag ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded mr-1">🚨 RED FLAG</span>' : ''}
-              <strong class="text-xs text-red-600 dark:text-red-400">[${s.categoria}]</strong>
-              <span class="${s.red_flag ? 'font-bold text-red-700 dark:text-red-300' : ''}">${s.nome}</span>
+              <div class="font-bold text-xs text-emerald-700 dark:text-emerald-400">Cadastrar novo sintoma</div>
+              <div class="text-[11px] text-slate-500">"${termoOriginal}" em [${catPadrao}]</div>
             </div>
-            <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">${idx === 0 ? '↵ Enter' : '+'}</span>
-          </li>
-        `).join('');
-      }
-      dropdown.classList.remove('hidden');
+          </button>
+        </li>`;
+    } else {
+      dropdown.innerHTML = `<li class="p-3 text-xs text-slate-400 italic">Nenhum sintoma encontrado. Digite 3+ letras para cadastrar.</li>`;
     }
+  } else {
+    dropdown.innerHTML = sugestoesAtuais.map((s, idx) => `
+      <li onclick="adicionarSintomaTag('${s.id}')" class="p-2.5 hover:bg-red-50 dark:hover:bg-slate-600 cursor-pointer flex justify-between items-center transition ${idx === 0 ? 'bg-red-50/50 dark:bg-slate-600/40' : ''}">
+        <div>
+          ${s.red_flag ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded mr-1">🚨 RED FLAG</span>' : ''}
+          <strong class="text-xs text-red-600 dark:text-red-400">[${s.categoria}]</strong>
+          <span class="${s.red_flag ? 'font-bold text-red-700 dark:text-red-300' : ''}">${s.nome}</span>
+        </div>
+        <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">${idx === 0 ? '↵ Enter' : '+'}</span>
+      </li>
+    `).join('');
+  }
+  dropdown.classList.remove('hidden');
+}
 
     function irParaCadastroDeSintoma(nome, categoria) {
       document.getElementById('dropdown-sugestoes').classList.add('hidden');
@@ -924,7 +1048,7 @@
     }
 
     // =========================================================================
-    // 7. MOTOR DE DIAGNÓSTICOS
+    // 7. MOTOR DE DIAGNÓSTICOS (com filtro por natureza)
     // =========================================================================
     function processarTriagem() {
       const containerDiag = document.getElementById('resultados-diagnosticos');
@@ -941,26 +1065,40 @@
         alertaRedFlag.classList.add('hidden');
       }
 
+      const bannerFiltro = naturezaSelecionada !== 'TODAS'
+        ? `<div class="mb-2 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-900/60 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-between">
+             <span>🔎 Filtrando: <strong class="text-red-600 dark:text-red-400">${naturezaSelecionada}</strong></span>
+             <button onclick="selecionarNaturezaRapida('TODAS')" class="text-red-600 dark:text-red-400 hover:underline">Mostrar todas</button>
+           </div>`
+        : '';
+
       if (sintomasSelecionadosIds.length === 0) {
-        containerDiag.innerHTML = '<p class="text-sm text-slate-400 italic">Selecione os sintomas para ver diagnósticos e instruções...</p>';
+        containerDiag.innerHTML = bannerFiltro + '<p class="text-sm text-slate-400 italic">Selecione os sintomas no passo 1 para gerar o diagnóstico...</p>';
         atualizarRelatorio([], []);
         return;
       }
 
       const pesosCriticidade = { 'CRITICO': 4, 'GRAVE': 3, 'INTERMEDIARIO': 2, 'LEVE': 1 };
 
+      const idsSintomasDaNatureza = naturezaSelecionada === 'TODAS'
+        ? null
+        : new Set(bancoSintomas.filter(s => s.categoria === naturezaSelecionada).map(s => s.id));
+
       const diagnosticosEncontrados = bancoDiagnosticos
         .map(diag => {
           const sintomasEmComum = sintomasSelecionadosIds.filter(id => diag.sintomas_ids.includes(id));
           const temRedFlagVinculado = redFlagsAtivos.some(rf => diag.sintomas_ids.includes(rf.id));
+          const bateNatureza = !idsSintomasDaNatureza
+            || diag.sintomas_ids.some(id => idsSintomasDaNatureza.has(id));
           return {
             ...diag,
             matches: sintomasEmComum.length,
             temRedFlagVinculado,
+            bateNatureza,
             bateuTodosInformados: sintomasEmComum.length === sintomasSelecionadosIds.length
           };
         })
-        .filter(d => d.matches > 0)
+        .filter(d => d.matches > 0 && d.bateNatureza)
         .sort((a, b) => {
           if (b.temRedFlagVinculado !== a.temRedFlagVinculado) return b.temRedFlagVinculado ? 1 : -1;
           if (b.matches !== a.matches) return b.matches - a.matches;
@@ -968,9 +1106,14 @@
         });
 
       if (diagnosticosEncontrados.length === 0) {
-        containerDiag.innerHTML = '<p class="text-xs text-amber-500 font-semibold">Nenhum diagnóstico vinculado a estes sintomas. Verifique o cadastro no banco.</p>';
+        containerDiag.innerHTML = bannerFiltro + `
+          <p class="text-xs text-amber-500 font-semibold">
+            Nenhum diagnóstico vinculado a estes sintomas
+            ${naturezaSelecionada !== 'TODAS' ? `na natureza <strong>${naturezaSelecionada}</strong>` : ''}.
+            ${naturezaSelecionada !== 'TODAS' ? 'Tente <button onclick="selecionarNaturezaRapida(\'TODAS\')" class="underline font-bold">mostrar todas as naturezas</button>.' : 'Verifique o cadastro no banco.'}
+          </p>`;
       } else {
-        containerDiag.innerHTML = diagnosticosEncontrados.map(d => {
+        containerDiag.innerHTML = bannerFiltro + diagnosticosEncontrados.map(d => {
           const badgeColors = {
             'CRITICO': 'bg-red-600 text-white',
             'GRAVE': 'bg-orange-500 text-white',
@@ -1368,6 +1511,7 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
       protocoloAtual = null;
       pararTimer();
 
+      limparEnderecoEstruturado();
       selecionarNaturezaRapida('TODAS');
       renderizarSelecaoViaturasTriagem();
       processarTriagem();
@@ -1540,11 +1684,638 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
           btn.className = "flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap";
         }
       });
+if (aba === 'cadastros') {
+  aplicarCidadePadraoAdmin();
+  renderizarAdminCidades();
+  renderizarAdminBairros();
+  renderizarAdminRuas();
+}
     }
 
-    // Mantém função para compatibilidade (caso algum onclick ainda chame `alternarTema` global)
-    window.alternarTema = alternarTema;
-    window.alternarAba   = alternarAba;
+    // =========================================================================
+    // 11. LOCALIDADES — Cidade → Bairro → Rua → Nº
+    // =========================================================================
+    async function sincronizarLocalidades() {
+      try {
+        const [resCidades, resBairros] = await Promise.all([
+          comTimeout(supabaseClient.from('cidades').select('*').order('nome')),
+          comTimeout(supabaseClient.from('bairros').select('*').order('nome'))
+        ]);
+        if (resCidades.error) throw resCidades.error;
+        if (resBairros.error) throw resBairros.error;
+        bancoCidades = resCidades.data || [];
+        bancoBairrosLocalidades = resBairros.data || [];
+        localStorage.setItem('cobom_cache_cidades', JSON.stringify(bancoCidades));
+        localStorage.setItem('cobom_cache_bairros_loc', JSON.stringify(bancoBairrosLocalidades));
+      } catch (err) {
+        console.warn('Localidades: usando cache local.', err);
+        bancoCidades = JSON.parse(localStorage.getItem('cobom_cache_cidades') || '[]');
+        bancoBairrosLocalidades = JSON.parse(localStorage.getItem('cobom_cache_bairros_loc') || '[]');
+      }
+      renderizarTudoLocalidades();
+    }
+
+    async function carregarRuasDoBairro(bairroId) {
+      if (!bairroId) return [];
+      if (cacheRuas[bairroId]) return cacheRuas[bairroId];
+      const local = localStorage.getItem('cobom_ruas_' + bairroId);
+      if (local) {
+        try { const d = JSON.parse(local); cacheRuas[bairroId] = d; return d; } catch {}
+      }
+      try {
+        const { data, error } = await supabaseClient.from('ruas').select('*').eq('bairro_id', bairroId).order('nome');
+        if (error) throw error;
+        cacheRuas[bairroId] = data || [];
+        localStorage.setItem('cobom_ruas_' + bairroId, JSON.stringify(data || []));
+        return data || [];
+      } catch (err) {
+        console.warn('Erro ruas:', err);
+        cacheRuas[bairroId] = [];
+        return [];
+      }
+    }
+
+    function invalidarCacheRuas(bairroId) {
+      delete cacheRuas[bairroId];
+      localStorage.removeItem('cobom_ruas_' + bairroId);
+    }
+
+function renderizarTudoLocalidades() {
+  renderizarAdminCidades();
+  renderizarAdminBairros();
+  renderizarAdminRuas();
+}
+
+    // ---------- PAINEL ESTRUTURADO ----------
+    function togglePainelEstruturado() {
+      const painel = document.getElementById('painel-endereco-estruturado');
+      const icone = document.getElementById('icone-toggle-estruturado');
+      if (!painel) return;
+      const abrindo = painel.classList.contains('hidden');
+      painel.classList.toggle('hidden');
+      if (icone) icone.textContent = abrindo ? '▲' : '▼';
+      localStorage.setItem('cobom_estruturado_aberto', abrindo ? '1' : '0');
+    }
+
+    function restaurarEstadoPainelEstruturado() {
+      if (localStorage.getItem('cobom_estruturado_aberto') === '1') {
+        document.getElementById('painel-endereco-estruturado')?.classList.remove('hidden');
+        const ic = document.getElementById('icone-toggle-estruturado');
+        if (ic) ic.textContent = '▲';
+      }
+    }
+
+async function onInputCidadeEstruturada() {
+  const inpCid = document.getElementById('est-cidade');
+  const inpBai = document.getElementById('est-bairro');
+  const dlBai = document.getElementById('datalist-bairros');
+  const badge = document.getElementById('badge-cidade-ativa');
+
+  const cidade = resolverCidadePorNome(inpCid.value);
+
+  if (!cidade) {
+    if (inpBai) { inpBai.value = ''; inpBai.disabled = true; }
+    if (dlBai) dlBai.innerHTML = '';
+    if (badge) badge.textContent = '';
+    limparRuaNumero();
+    return;
+  }
+
+  localStorage.setItem('cobom_cidade_padrao', cidade.id);
+  if (badge) badge.textContent = `Operando em: ${cidade.nome} - ${cidade.uf}`;
+
+  const bairrosDaCidade = bancoBairrosLocalidades
+    .filter(b => b.cidade_id === cidade.id)
+    .sort((a, b) => {
+      const ua = usoBairrosLocais[a.nome] || 0;
+      const ub = usoBairrosLocais[b.nome] || 0;
+      if (ub !== ua) return ub - ua;
+      return a.nome.localeCompare(b.nome, 'pt-BR');
+    });
+
+  if (dlBai) {
+    const opts = [];
+    bairrosDaCidade.forEach(b => {
+      const u = usoBairrosLocais[b.nome] || 0;
+      const prefixo = u > 0 ? `🔥 (${u}x) ` : '';
+      opts.push(`<option value="${prefixo}${b.nome}"></option>`);
+      const semAcento = removerAcentos(b.nome);
+      if (semAcento !== b.nome) opts.push(`<option value="${prefixo}${semAcento}"></option>`);
+    });
+    dlBai.innerHTML = opts.join('');
+  }
+
+  if (inpBai) inpBai.disabled = false;
+
+  // Se já tinha bairro digitado, tenta reconciliar
+  if (inpBai && inpBai.value) {
+    await onInputBairroEstruturado();
+  } else {
+    limparRuaNumero();
+  }
+}
+
+async function onInputBairroEstruturado() {
+  const cidade = resolverCidadePorNome(document.getElementById('est-cidade').value);
+  const inpBai = document.getElementById('est-bairro');
+  const inpRua = document.getElementById('est-rua');
+  const inpNum = document.getElementById('est-numero');
+
+  if (!cidade) { limparRuaNumero(); return; }
+  const bairro = resolverBairroPorNome(inpBai.value, cidade.id);
+  if (!bairro) { limparRuaNumero(); return; }
+
+  inpRua.disabled = false;
+  inpNum.disabled = false;
+
+const ruas = await carregarRuasDoBairro(bairro.id);
+  const datalist = document.getElementById('datalist-ruas');
+  if (datalist) {
+    const opts = [];
+    ruas.forEach(r => {
+      opts.push(`<option value="${r.nome}"></option>`);
+      const semAcento = removerAcentos(r.nome);
+      if (semAcento !== r.nome) opts.push(`<option value="${semAcento}"></option>`);
+    });
+    datalist.innerHTML = opts.join('');
+  }
+
+  onInputRuaEstruturada();
+}
+
+    function limparRuaNumero() {
+      const ir = document.getElementById('est-rua');
+      const inum = document.getElementById('est-numero');
+      if (ir) { ir.value = ''; ir.disabled = true; }
+      if (inum) { inum.value = ''; inum.disabled = true; }
+    }
+
+    function marcarSemNumero() {
+      const inum = document.getElementById('est-numero');
+      if (!inum) return;
+      inum.value = 'S/N';
+      onInputRuaEstruturada();
+    }
+
+function onInputRuaEstruturada() {
+  const cidade = resolverCidadePorNome(document.getElementById('est-cidade').value);
+  const inpBai = document.getElementById('est-bairro');
+  const bairro = cidade ? resolverBairroPorNome(inpBai.value, cidade.id) : null;
+
+  const rua = document.getElementById('est-rua').value.trim();
+  const num = document.getElementById('est-numero').value.trim();
+
+  if (!cidade && !bairro) return;
+
+  if (bairro) {
+    usoBairrosLocais[bairro.nome] = (usoBairrosLocais[bairro.nome] || 0) + 1;
+    localStorage.setItem('cobom_bairros_uso', JSON.stringify(usoBairrosLocais));
+  }
+
+  // ★ Canonicaliza a rua: se "sao joao" casar com "São João" no cache, usa a versão correta
+  let ruaFinal = rua;
+  if (bairro && cacheRuas[bairro.id] && rua) {
+    const match = cacheRuas[bairro.id].find(r =>
+      normalizarTexto(r.nome) === normalizarTexto(rua)
+    );
+    if (match) ruaFinal = match.nome;
+  }
+
+  const partes = [];
+  if (ruaFinal) partes.push(ruaFinal);
+  if (num) partes.push(num === 'S/N' ? 'S/N' : `Nº ${num}`);
+  if (bairro) partes.push(bairro.nome);
+  if (cidade) partes.push(`${cidade.nome} - ${cidade.uf}`);
+
+  if (partes.length === 0) return;
+  document.getElementById('solicitante-end').value = partes.join(', ');
+  atualizarRelatorio();
+}
+
+function limparEnderecoEstruturado() {
+  const inpCid = document.getElementById('est-cidade');
+  const inpBai = document.getElementById('est-bairro');
+  const badge = document.getElementById('badge-cidade-ativa');
+  if (inpCid) inpCid.value = '';
+  if (inpBai) { inpBai.value = ''; inpBai.disabled = true; }
+  if (badge) badge.textContent = '';
+  limparRuaNumero();
+}
+
+    // ---------- ADMIN TABS ----------
+    function trocarTabLocalidade(tab) {
+      ['cidades', 'bairros', 'ruas'].forEach(t => {
+        const panel = document.getElementById(`loc-panel-${t}`);
+        const btn = document.getElementById(`tab-loc-${t}`);
+        if (!panel || !btn) return;
+        if (t === tab) {
+          panel.classList.remove('hidden');
+          btn.className = "text-xs font-bold px-3 py-1.5 rounded bg-red-600 text-white";
+        } else {
+          panel.classList.add('hidden');
+          btn.className = "text-xs font-bold px-3 py-1.5 rounded bg-slate-200 dark:bg-slate-700";
+        }
+      });
+      if (tab === 'cidades') renderizarAdminCidades();
+      if (tab === 'bairros') renderizarAdminBairros();
+      if (tab === 'ruas') { renderizarAdminRuas(); }
+    }
+
+    // ---------- ADMIN: CIDADES ----------
+    async function salvarCidade(e) {
+      e.preventDefault();
+      const nome = document.getElementById('cad-cidade-nome').value.trim();
+      const uf = document.getElementById('cad-cidade-uf').value.trim().toUpperCase();
+      if (!nome || !uf) return;
+      const { error } = await supabaseClient.from('cidades').insert([{ nome, uf }]);
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      document.getElementById('cad-cidade-nome').value = '';
+      document.getElementById('cad-cidade-uf').value = '';
+      mostrarToast(`Cidade "${nome}" cadastrada.`, 'sucesso');
+      await sincronizarLocalidades();
+    }
+
+    async function excluirCidade(id) {
+      const c = bancoCidades.find(x => x.id === id);
+      if (!c) return;
+      if (!confirm(`Excluir "${c.nome} - ${c.uf}"? Todos os bairros e ruas desta cidade serão apagados.`)) return;
+      const { error } = await supabaseClient.from('cidades').delete().eq('id', id);
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      mostrarToast('Cidade excluída.', 'sucesso');
+      await sincronizarLocalidades();
+    }
+
+    function renderizarAdminCidades() {
+      const el = document.getElementById('lista-admin-cidades');
+      if (!el) return;
+      if (bancoCidades.length === 0) {
+        el.innerHTML = '<p class="text-slate-400 italic p-2">Nenhuma cidade cadastrada. Comece cadastrando a sua cidade acima.</p>';
+        return;
+      }
+      el.innerHTML = bancoCidades.map(c => {
+        const q = bancoBairrosLocalidades.filter(b => b.cidade_id === c.id).length;
+        return `
+          <div class="flex justify-between items-center py-1.5 px-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
+            <span><strong>${c.nome} - ${c.uf}</strong> <span class="text-slate-400 ml-1">(${q} bairros)</span></span>
+            <button onclick="excluirCidade('${c.id}')" class="text-red-500 font-black px-2">✕</button>
+          </div>`;
+      }).join('');
+    }
+
+    // ---------- ADMIN: BAIRROS ----------
+
+function popularDatalistBairrosRua() {
+  const cidade = resolverCidadePorNome(document.getElementById('cad-rua-cidade')?.value);
+  const dl = document.getElementById('datalist-cad-bairros');
+  if (!dl) return;
+  if (!cidade) { dl.innerHTML = ''; renderizarAdminRuas(); return; }
+  const bairros = bancoBairrosLocalidades
+    .filter(b => b.cidade_id === cidade.id)
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  const opts = [];
+  bairros.forEach(b => {
+    opts.push(`<option value="${b.nome}"></option>`);
+    const semAcento = removerAcentos(b.nome);
+    if (semAcento !== b.nome) opts.push(`<option value="${semAcento}"></option>`);
+  });
+  dl.innerHTML = opts.join('');
+  renderizarAdminRuas();
+}
+
+async function salvarBairro(e) {
+  e.preventDefault();
+  const cidade = resolverCidadePorNome(document.getElementById('cad-bairro-cidade').value);
+  if (!cidade) return mostrarToast('Cidade não encontrada. Selecione na lista.', 'erro');
+  const nome = document.getElementById('cad-bairro-nome').value.trim();
+  if (!nome) return;
+  const { error } = await supabaseClient.from('bairros').insert([{ cidade_id: cidade.id, nome }]);
+  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+  document.getElementById('cad-bairro-nome').value = '';
+  mostrarToast(`Bairro "${nome}" cadastrado.`, 'sucesso');
+  await sincronizarLocalidades();
+}
+
+    async function excluirBairro(id) {
+      const b = bancoBairrosLocalidades.find(x => x.id === id);
+      if (!b) return;
+      if (!confirm(`Excluir o bairro "${b.nome}"? Todas as ruas dele serão apagadas.`)) return;
+      const { error } = await supabaseClient.from('bairros').delete().eq('id', id);
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      invalidarCacheRuas(id);
+      mostrarToast('Bairro excluído.', 'sucesso');
+      await sincronizarLocalidades();
+    }
+
+    function renderizarAdminBairros() {
+      const el = document.getElementById('lista-admin-bairros');
+      if (!el) return;
+      if (bancoBairrosLocalidades.length === 0) {
+        el.innerHTML = '<p class="text-slate-400 italic p-2">Nenhum bairro cadastrado.</p>';
+        return;
+      }
+      const ord = [...bancoBairrosLocalidades].sort((a, b) => {
+        const ca = bancoCidades.find(c => c.id === a.cidade_id)?.nome || '';
+        const cb = bancoCidades.find(c => c.id === b.cidade_id)?.nome || '';
+        if (ca !== cb) return ca.localeCompare(cb, 'pt-BR');
+        return a.nome.localeCompare(b.nome, 'pt-BR');
+      });
+      el.innerHTML = ord.map(b => {
+        const cid = bancoCidades.find(c => c.id === b.cidade_id);
+        return `
+          <div class="flex justify-between items-center py-1.5 px-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
+            <span>
+              <span class="text-[10px] font-black uppercase bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded mr-1">${cid ? cid.nome + ' - ' + cid.uf : '?'}</span>
+              <strong>${b.nome}</strong>
+            </span>
+            <button onclick="excluirBairro('${b.id}')" class="text-red-500 font-black px-2">✕</button>
+          </div>`;
+      }).join('');
+    }
+
+    // ---------- ADMIN: RUAS ----------
+async function salvarRua(e) {
+  e.preventDefault();
+  const cidade = resolverCidadePorNome(document.getElementById('cad-rua-cidade').value);
+  const bairro = cidade ? resolverBairroPorNome(document.getElementById('cad-rua-bairro').value, cidade.id) : null;
+  if (!bairro) return mostrarToast('Bairro não encontrado. Digite na lista.', 'erro');
+  const nome = document.getElementById('cad-rua-nome').value.trim();
+  if (!nome) return;
+  const { error } = await supabaseClient.from('ruas').insert([{ bairro_id: bairro.id, nome }]);
+  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+  document.getElementById('cad-rua-nome').value = '';
+  invalidarCacheRuas(bairro.id);
+  await carregarRuasDoBairro(bairro.id);
+  mostrarToast(`Rua "${nome}" cadastrada.`, 'sucesso');
+  renderizarAdminRuas();
+}
+
+async function importarRuasEmMassa() {
+  const cidade = resolverCidadePorNome(document.getElementById('cad-rua-cidade').value);
+  const bairro = cidade ? resolverBairroPorNome(document.getElementById('cad-rua-bairro').value, cidade.id) : null;
+  if (!bairro) return mostrarToast('Selecione a cidade e o bairro primeiro.', 'erro');
+  const texto = document.getElementById('import-ruas-lista').value;
+  const linhas = parseListaEmMassa(texto);
+  if (linhas.length === 0) return mostrarToast('Cole pelo menos 1 rua.', 'erro');
+  if (!confirm(`Importar ${linhas.length} ruas para "${bairro.nome}"?`)) return;
+
+  const registros = linhas.map(nome => ({ bairro_id: bairro.id, nome }));
+  const { error } = await supabaseClient.from('ruas').insert(registros);
+  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+  document.getElementById('import-ruas-lista').value = '';
+  invalidarCacheRuas(bairro.id);
+  await carregarRuasDoBairro(bairro.id);
+  mostrarToast(`${linhas.length} ruas importadas.`, 'sucesso');
+  renderizarAdminRuas();
+}
+
+async function importarBairrosEmMassa() {
+  const cidade = resolverCidadePorNome(document.getElementById('cad-bairro-cidade').value);
+  if (!cidade) return mostrarToast('Digite a cidade primeiro (com autocomplete).', 'erro');
+
+  const texto = document.getElementById('import-bairros-lista').value;
+  const nomes = parseListaEmMassa(texto);
+  if (nomes.length === 0) return mostrarToast('Cole pelo menos 1 bairro.', 'erro');
+  if (!confirm(`Importar ${nomes.length} bairros para "${cidade.nome} - ${cidade.uf}"?`)) return;
+
+  const registros = nomes.map(nome => ({ cidade_id: cidade.id, nome }));
+  const { error } = await supabaseClient.from('bairros').insert(registros);
+  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+
+  document.getElementById('import-bairros-lista').value = '';
+  mostrarToast(`${nomes.length} bairros importados.`, 'sucesso');
+  await sincronizarLocalidades();
+}
+
+    async function excluirRua(id, bairroId) {
+      if (!confirm('Excluir esta rua?')) return;
+      const { error } = await supabaseClient.from('ruas').delete().eq('id', id);
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      invalidarCacheRuas(bairroId);
+      await carregarRuasDoBairro(bairroId);
+      mostrarToast('Rua excluída.', 'sucesso');
+      renderizarAdminRuas();
+    }
+
+async function renderizarAdminRuas() {
+  const el = document.getElementById('lista-admin-ruas');
+  if (!el) return;
+  const cidade = resolverCidadePorNome(document.getElementById('cad-rua-cidade')?.value);
+  const bairro = cidade ? resolverBairroPorNome(document.getElementById('cad-rua-bairro')?.value, cidade.id) : null;
+  if (!bairro) {
+    el.innerHTML = '<p class="text-slate-400 italic p-2">Digite cidade e bairro acima para ver as ruas.</p>';
+    return;
+  }
+  el.innerHTML = '<p class="text-slate-400 italic p-2">Carregando ruas...</p>';
+  const ruas = await carregarRuasDoBairro(bairro.id);
+  if (ruas.length === 0) {
+    el.innerHTML = '<p class="text-slate-400 italic p-2">Nenhuma rua cadastrada neste bairro.</p>';
+    return;
+  }
+  el.innerHTML = ruas.map(r => `
+    <div class="flex justify-between items-center py-1.5 px-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
+      <span><strong>${r.nome}</strong></span>
+      <button onclick="excluirRua('${r.id}', '${bairro.id}')" class="text-red-500 font-black px-2">✕</button>
+    </div>
+  `).join('');
+}
+
+function resolverCidadePorNome(texto) {
+  const t = normalizarTexto(texto);
+  if (!t) return null;
+  return bancoCidades.find(c => normalizarTexto(`${c.nome} - ${c.uf}`) === t)
+      || bancoCidades.find(c => normalizarTexto(c.nome) === t);
+}
+
+// ---------- AUTOCOMPLETE CUSTOMIZADO (filtro por normalização) ----------
+const providersAutocomplete = {
+  'est-cidade': () => bancoCidades.map(c => ({ texto: `${c.nome} - ${c.uf}` })),
+  'est-bairro': () => {
+    const cidade = resolverCidadePorNome(document.getElementById('est-cidade')?.value);
+    if (!cidade) return [];
+    return bancoBairrosLocalidades
+      .filter(b => b.cidade_id === cidade.id)
+      .sort((a, b) => {
+        const ua = usoBairrosLocais[a.nome] || 0;
+        const ub = usoBairrosLocais[b.nome] || 0;
+        if (ub !== ua) return ub - ua;
+        return a.nome.localeCompare(b.nome, 'pt-BR');
+      })
+      .map(b => {
+        const u = usoBairrosLocais[b.nome] || 0;
+        return { texto: b.nome, label: u > 0 ? `🔥 (${u}x) ${b.nome}` : b.nome };
+      });
+  },
+  'est-rua': () => {
+    const cidade = resolverCidadePorNome(document.getElementById('est-cidade')?.value);
+    const bairro = cidade ? resolverBairroPorNome(document.getElementById('est-bairro')?.value, cidade.id) : null;
+    if (!bairro || !cacheRuas[bairro.id]) return [];
+    return cacheRuas[bairro.id].map(r => ({ texto: r.nome }));
+  },
+  'cad-bairro-cidade': () => bancoCidades.map(c => ({ texto: `${c.nome} - ${c.uf}` })),
+  'cad-rua-cidade': () => bancoCidades.map(c => ({ texto: `${c.nome} - ${c.uf}` })),
+  'cad-rua-bairro': () => {
+    const cidade = resolverCidadePorNome(document.getElementById('cad-rua-cidade')?.value);
+    if (!cidade) return [];
+    return bancoBairrosLocalidades
+      .filter(b => b.cidade_id === cidade.id)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+      .map(b => ({ texto: b.nome }));
+  },
+};
+
+function criarAutocomplete(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input || input.dataset.acInit === '1') return;
+  if (!providersAutocomplete[inputId]) return;
+  input.dataset.acInit = '1';
+
+  const dropdown = document.createElement('ul');
+  dropdown.className = 'hidden z-[200] max-h-56 overflow-y-auto bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg shadow-2xl divide-y dark:divide-slate-600 text-xs';
+  document.body.appendChild(dropdown);
+
+  let opcoes = [];
+  let indiceAtivo = -1;
+
+  function posicionar() {
+    const rect = input.getBoundingClientRect();
+    const altMax = 240;
+    const caberAbaixo = rect.bottom + altMax + 4 < window.innerHeight;
+    dropdown.style.position = 'fixed';
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.width = rect.width + 'px';
+    if (caberAbaixo) {
+      dropdown.style.top = (rect.bottom + 4) + 'px';
+      dropdown.style.bottom = 'auto';
+      dropdown.style.maxHeight = altMax + 'px';
+    } else {
+      dropdown.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+      dropdown.style.top = 'auto';
+      dropdown.style.maxHeight = Math.min(altMax, rect.top - 8) + 'px';
+    }
+  }
+
+  function renderizar() {
+    const termo = normalizarTexto(input.value);
+    const all = providersAutocomplete[inputId]() || [];
+    opcoes = all.filter(o => !termo || normalizarTexto(o.texto).includes(termo)).slice(0, 30);
+
+    if (opcoes.length === 0) {
+      dropdown.innerHTML = `<li class="p-2.5 text-slate-400 italic">${all.length === 0 ? 'Nenhuma opção cadastrada' : 'Nenhum resultado'}</li>`;
+      indiceAtivo = -1;
+    } else {
+      dropdown.innerHTML = opcoes.map((o, i) => `
+        <li data-idx="${i}" class="p-2.5 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-600 ${i === indiceAtivo ? 'bg-red-50 dark:bg-slate-600 font-bold' : ''}">${o.label || o.texto}</li>
+      `).join('');
+      dropdown.querySelectorAll('li[data-idx]').forEach(li => {
+        li.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selecionar(parseInt(li.dataset.idx));
+        });
+      });
+    }
+    posicionar();
+  }
+
+  function selecionar(idx) {
+    if (idx < 0 || idx >= opcoes.length) return;
+    const op = opcoes[idx];
+    input.value = op.texto;
+    dropdown.classList.add('hidden');
+    indiceAtivo = -1;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function abrir() {
+    renderizar();
+    if (opcoes.length > 0 || input.value) {
+      posicionar();
+      dropdown.classList.remove('hidden');
+    }
+  }
+
+  function fechar() {
+    setTimeout(() => dropdown.classList.add('hidden'), 120);
+  }
+
+  input.addEventListener('focus', abrir);
+  input.addEventListener('input', () => {
+    indiceAtivo = -1;
+    renderizar();
+    dropdown.classList.remove('hidden');
+  });
+  input.addEventListener('blur', fechar);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (dropdown.classList.contains('hidden')) { abrir(); return; }
+      indiceAtivo = Math.min(indiceAtivo + 1, opcoes.length - 1);
+      renderizar();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      indiceAtivo = Math.max(indiceAtivo - 1, 0);
+      renderizar();
+    } else if (e.key === 'Enter') {
+      if (indiceAtivo >= 0 || opcoes.length > 0) {
+        e.preventDefault();
+        selecionar(indiceAtivo >= 0 ? indiceAtivo : 0);
+      }
+    } else if (e.key === 'Escape') {
+      dropdown.classList.add('hidden');
+    }
+  });
+  window.addEventListener('scroll', () => {
+    if (!dropdown.classList.contains('hidden')) posicionar();
+  }, true);
+  window.addEventListener('resize', () => {
+    if (!dropdown.classList.contains('hidden')) posicionar();
+  });
+}
+
+function inicializarAutocompletes() {
+  Object.keys(providersAutocomplete).forEach(criarAutocomplete);
+}
+
+function aplicarCidadePadrao() {
+  const inp = document.getElementById('est-cidade');
+  if (!inp) return;
+  if (!inp.value) {
+    const cidadePadrao = localStorage.getItem('cobom_cidade_padrao');
+    if (cidadePadrao) {
+      const c = bancoCidades.find(x => x.id === cidadePadrao);
+      if (c) inp.value = `${c.nome} - ${c.uf}`;
+    } else if (bancoCidades.length === 1) {
+      inp.value = `${bancoCidades[0].nome} - ${bancoCidades[0].uf}`;
+    }
+  }
+  if (inp.value) onInputCidadeEstruturada();
+}
+
+function aplicarCidadePadraoAdmin() {
+  if (bancoCidades.length !== 1) return;
+  const txt = `${bancoCidades[0].nome} - ${bancoCidades[0].uf}`;
+  const ib = document.getElementById('cad-bairro-cidade');
+  const ir = document.getElementById('cad-rua-cidade');
+  if (ib && !ib.value) ib.value = txt;
+  if (ir && !ir.value) ir.value = txt;
+  renderizarAdminRuas();
+}
+
+function resolverBairroPorNome(texto, cidadeId) {
+  const t = normalizarTexto(texto);
+  if (!t || !cidadeId) return null;
+  return bancoBairrosLocalidades.find(b =>
+    b.cidade_id === cidadeId && normalizarTexto(b.nome) === t
+  );
+}
+
+  function parseListaEmMassa(texto) {
+  // Aceita newline OU ponto-e-vírgula como separador
+  // Remove espaços extras e ignora linhas vazias
+  return texto
+    .split(/[\n;]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
   </script>
 </body>
 </html>
