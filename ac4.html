@@ -1,0 +1,1363 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>10BBM - Sistema de Candidatura AC4</title>
+  <style>
+    :root{
+      --primary:#b30000;
+      --primary-dark:#7a0000;
+      --bg:#f1f5f9;
+      --card:#ffffff;
+      --border:#e2e8f0;
+      --text:#1e293b;
+      --muted:#64748b;
+      --ok:#16a34a;
+      --ok-dark:#15803d;
+      --warn:#d97706;
+      --danger:#dc2626;
+      --info:#0891b2;
+      --info-dark:#155e75;
+      --shadow:0 1px 3px rgba(0,0,0,.08);
+    }
+    html.dark{
+      --primary:#ef4444;
+      --primary-dark:#dc2626;
+      --bg:#0f172a;
+      --card:#1e293b;
+      --border:#334155;
+      --text:#f1f5f9;
+      --muted:#94a3b8;
+      --ok:#22c55e;
+      --ok-dark:#16a34a;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --info:#22d3ee;
+      --info-dark:#0891b2;
+      --shadow:0 4px 12px rgba(0,0,0,.4);
+    }
+
+    body{
+      font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+      margin:0; max-width:1000px; margin:0 auto; padding:16px;
+      background:var(--bg); color:var(--text);
+      transition:background .2s ease,color .2s ease;
+    }
+    .card{border:1px solid var(--border);padding:16px;border-radius:8px;margin-bottom:16px;background:var(--card);box-shadow:var(--shadow)}
+    input,button,select,textarea{padding:10px;margin:6px 0;display:block;width:100%;border:1px solid var(--border);border-radius:4px;box-sizing:border-box;background:var(--card);color:var(--text);font-family:inherit}
+    button{background:var(--primary);color:#fff;border:none;cursor:pointer;font-weight:bold;transition:background 0.3s}
+    button:hover{background:var(--primary-dark)}
+    button:disabled{background:var(--muted);cursor:not-allowed}
+    .btn-secondary{background:var(--muted)}
+    .btn-secondary:hover{background:var(--border);color:var(--text)}
+    .btn-success{background:var(--ok)}
+    .btn-success:hover{background:var(--ok-dark)}
+    .btn-info{background:var(--info)}
+    .btn-info:hover{background:var(--info-dark)}
+    .hidden{display:none}
+    .error{color:var(--danger);background:var(--bg);padding:12px;border-radius:4px;border:1px solid var(--danger);margin:10px 0}
+    .success{color:var(--ok);background:var(--bg);padding:12px;border-radius:4px;border:1px solid var(--ok);margin:10px 0}
+    .loading{color:var(--muted);font-style:italic;padding:12px;text-align:center}
+    .vacancy-item{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+    .apply-btn{background:var(--ok);margin-top:8px;width:auto;padding:8px 16px}
+    .apply-btn:hover{background:var(--ok-dark)}
+    .profile-btn{background:var(--muted);margin-top:8px;width:auto;padding:8px 16px}
+    .profile-btn:hover{background:var(--border);color:var(--text)}
+    h1{color:var(--text);text-align:center;margin-top:0;margin-bottom:24px;font-size:1.4rem}
+    h2{color:var(--text);margin-top:0}
+    #userInfo{background:var(--card);border:1px solid var(--ok)}
+    .profile-info{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+    .profile-field{background:var(--bg);padding:8px;border-radius:4px}
+    .specialties-container{margin:16px 0}
+    .specialty-tag{display:inline-block;background:var(--bg);color:var(--text);padding:4px 8px;margin:2px;border-radius:12px;font-size:12px;border:1px solid var(--border)}
+    .course-item{padding:8px;border:1px solid var(--border);margin:4px 0;border-radius:4px;cursor:pointer;background:var(--card)}
+    .course-item:hover{background:var(--bg)}
+    .selected-course{background:var(--card);border-color:var(--ok);box-shadow:0 0 0 1px var(--ok)}
+    .button-group{display:flex;gap:8px;margin:16px 0}
+    .button-group button{flex:1}
+    #modalTrocaSenha:not(.hidden){display:flex !important;}
+
+    @media (max-width: 768px) {
+      body{margin:8px;padding:8px;font-size:16px}
+      input,button,select{min-height:44px;font-size:16px;padding:12px}
+      .button-group{flex-direction:column}
+      .button-group button{margin:4px 0}
+      .card{padding:12px;margin-bottom:12px}
+      h1{font-size:1.2rem;margin-bottom:16px}
+      h2{font-size:1.3rem}
+    }
+    button:active{transform:scale(0.98);transition:transform 0.1s}
+    button,input{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+    input,textarea{font-size:16px!important}
+
+    /* ---------- Barra de abas padrão CBMGO ---------- */
+    .tabs-nav{
+      max-width:1000px;margin:0 auto 16px;
+      display:flex;gap:4px;background:var(--bg);
+      padding:4px;border-radius:10px;
+      box-shadow:var(--shadow);
+      border:1px solid var(--border);overflow-x:auto;
+    }
+    .tabs-nav .tab{
+      flex:1;text-align:center;padding:11px 14px;border-radius:7px;
+      text-decoration:none;color:var(--text);font-weight:700;font-size:.92rem;
+      white-space:nowrap;transition:all .15s ease;
+      display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    }
+    .tabs-nav .tab:hover{background:rgba(179,0,0,.08);color:var(--danger);}
+    .tabs-nav .tab.active{background:var(--danger);color:#fff;box-shadow:0 2px 6px rgba(179,0,0,.25);}
+    .tabs-nav .tab.active:hover{background:var(--danger);color:#fff;}
+    @media (max-width:600px){
+      .tabs-nav .tab{font-size:.82rem;padding:9px 10px;}
+    }
+  </style>
+</head>
+<body>
+  <header style="
+    background:var(--primary);
+    color:#fff;
+    padding:10px 16px;
+    margin:-16px -16px 16px;
+    box-shadow:0 2px 6px rgba(0,0,0,.15);
+    display:flex;justify-content:space-between;align-items:center;
+    position:sticky;top:0;z-index:40;
+  ">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="
+        width:36px;height:36px;border-radius:8px;
+        background:rgba(0,0,0,.25);color:#fff;
+        display:flex;align-items:center;justify-content:center;
+        font-weight:900;font-size:14px;
+      ">193</div>
+      <div>
+        <div style="font-weight:800;font-size:15px;line-height:1.1">AC4 — Candidatura</div>
+        <div style="font-size:11px;opacity:.85">10º BBM · Catalão</div>
+      </div>
+    </div>
+    <button id="btnThemeAc4" onclick="toggleThemeAc4()" title="Alternar tema"
+      style="
+        background:rgba(0,0,0,.25);color:#fff;border:none;
+        padding:8px 12px;border-radius:8px;font-size:14px;cursor:pointer;
+        width:auto;margin:0;
+      ">🌙</button>
+  </header>
+
+  <script>
+    function toggleThemeAc4() {
+      const html = document.documentElement;
+      const dark = html.classList.toggle('dark');
+      localStorage.setItem('cbmgo193.theme', dark ? 'dark' : 'light');
+      document.getElementById('btnThemeAc4').textContent = dark ? '☀️' : '🌙';
+    }
+    (function() {
+      const saved = localStorage.getItem('cbmgo193.theme');
+      const dark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.classList.add('dark');
+      document.addEventListener('DOMContentLoaded', () => {
+        const b = document.getElementById('btnThemeAc4');
+        if (b) b.textContent = dark ? '☀️' : '🌙';
+      });
+    })();
+  </script>
+
+  <nav class="tabs-nav" id="appTabs" aria-label="Navegação entre aplicativos"></nav>
+
+  <h1>Sistema de Candidatura AC4</h1>
+
+  <div id="statusMessage"></div>
+
+  <div id="auth" class="card">
+    <h2>Login com RG</h2>
+    <div id="loginSection">
+      <input id="rg" placeholder="RG (Documento)" type="text" inputmode="numeric" />
+      <input id="password" placeholder="Senha" type="password" />
+      <div class="button-group">
+        <button id="btnLogin" class="btn-success" style="min-height:44px;padding:12px">Entrar</button>
+        <button id="btnRegister" style="min-height:44px;padding:12px">Cadastrar</button>
+      </div>
+      <div id="mobileFeedback" style="display:none;margin-top:10px;padding:8px;background:var(--bg);border:1px solid var(--warn);border-radius:4px;font-size:14px;color:var(--text)"></div>
+    </div>
+    <div id="userInfo" class="hidden">
+      <p>Logado como: <strong id="userName"></strong></p>
+      <div class="button-group">
+        <button id="btnProfile" class="btn-secondary" style="min-height:44px;padding:12px">Meu Perfil</button>
+        <button id="btnVacancies" class="btn-success" style="min-height:44px;padding:12px">Ver Vagas</button>
+        <button id="btnMyApplications" class="btn-info" style="min-height:44px;padding:12px">Minhas Candidaturas</button>
+        <button id="btnLogout" style="min-height:44px;padding:12px">Sair</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="profileSection" class="card hidden">
+    <h2>Meu Perfil</h2>
+    <div class="button-group">
+      <button id="btnBackFromProfile" class="btn-secondary">← Voltar</button>
+    </div>
+    <div id="profileInfo" class="loading">Carregando perfil...</div>
+    <div class="specialties-container">
+      <h3>Minhas Especialidades</h3>
+      <div id="currentSpecialties" class="loading">Carregando especialidades...</div>
+      <button id="btnAddSpecialties" class="profile-btn">Adicionar/Editar Especialidades</button>
+    </div>
+  </div>
+
+  <div id="coursesSection" class="card hidden">
+    <h2>Adicionar Especialidades</h2>
+    <div class="button-group">
+      <button id="btnBackFromCourses" class="btn-secondary">← Voltar para Perfil</button>
+    </div>
+    <div id="coursesList" class="loading">Carregando cursos disponíveis...</div>
+    <div id="selectedCourses"></div>
+    <div class="button-group">
+      <button id="btnSaveSpecialties" class="btn-success">Salvar Especialidades</button>
+      <button id="btnCancelSpecialties" class="btn-secondary">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="vacancies" class="card hidden">
+    <h2>Vagas Disponíveis</h2>
+    <div id="vacancyList" class="loading">Carregando vagas...</div>
+  </div>
+
+  <div id="myApplications" class="card hidden">
+    <h2>Minhas Candidaturas</h2>
+    <div id="appliedList" class="loading">Carregando candidaturas...</div>
+  </div>
+
+  <div id="adminSection" class="card hidden">
+    <h2>Gerar Vagas AC4 em Massa (Admin)</h2>
+
+    <div id="adminForm">
+      <h3>Configuração das Vagas</h3>
+
+      <input type="number" id="vacanciesCount" placeholder="Número de Vagas" min="1">
+      <input type="text" id="vacanciesValues" placeholder="Valores (opcional - sobrescreve cálculo automático)">
+      <input type="number" id="vacanciesHours" placeholder="Horas de Escala (ex: 12h)" min="1" value="12">
+      <input type="text" id="vacanciesTime" placeholder="Horário de Início (ex: 20:00)">
+      <select id="vacanciesSpecialization" required>
+        <option value="">Selecione uma especialização</option>
+      </select>
+      <input type="text" id="vacanciesLocation" placeholder="Local" value="Catalão 10 BBM">
+      <textarea id="vacanciesObservations" placeholder="Observações (opcional)" style="width:100%;height:80px;padding:10px;margin:6px 0;border:1px solid var(--border);border-radius:4px;box-sizing:border-box;background:var(--card);color:var(--text);font-family:inherit"></textarea>
+
+      <h4>Selecionar Datas</h4>
+      <div id="calendarContainer">
+        <input type="date" id="datePicker" style="margin-bottom:10px">
+        <button id="btnAddDate" class="btn-secondary" style="width:auto;padding:8px 16px">Adicionar Data</button>
+      </div>
+
+      <div id="selectedDates" style="margin:16px 0;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:4px">
+        <strong>Datas Selecionadas:</strong>
+        <div id="datesList" style="margin-top:8px"></div>
+      </div>
+
+      <div id="valuePreview" style="margin:16px 0;padding:12px;background:var(--bg);border:1px solid var(--ok);border-radius:4px;color:var(--text)"></div>
+
+      <div class="button-group">
+        <button id="btnGenerateVacancies" class="btn-success">Gerar Vagas</button>
+        <button id="btnClearDates" class="btn-secondary">Limpar Datas</button>
+      </div>
+    </div>
+
+    <div id="generationResult" style="margin-top:20px"></div>
+  </div>
+
+  <div id="candidatesSection" class="card hidden">
+    <h2>Gerenciar Candidatos (Admin)</h2>
+
+    <div class="button-group" style="margin-bottom:20px">
+      <button id="btnViewCandidates" class="btn-success">Ver Candidatos Pendentes</button>
+      <button id="btnViewApproved" class="btn-success">Ver Candidatos Homologados</button>
+    </div>
+
+    <div id="candidatesList" class="loading">
+      Selecione uma opção acima para visualizar os candidatos
+    </div>
+  </div>
+
+  <script>
+    const VALUE_TABLE = {
+      'SEGUNDA': { '24h': 658.59, '16h': 430.18, '12h Diurno': 317.64, '12h Noturno': 340.95 },
+      'TERÇA':   { '24h': 658.59, '16h': 430.18, '12h Diurno': 317.64, '12h Noturno': 340.95 },
+      'QUARTA':  { '24h': 658.59, '16h': 430.18, '12h Diurno': 317.64, '12h Noturno': 340.95 },
+      'QUINTA':  { '24h': 688.41, '16h': 430.18, '12h Diurno': 317.64, '12h Noturno': 370.77 },
+      'SEXTA':   { '24h': 908.63, '16h': 592.5,  '12h Diurno': 436.92, '12h Noturno': 471.71 },
+      'SÁBADO':  { '24h': 908.63, '16h': 592.5,  '12h Diurno': 436.92, '12h Noturno': 471.71 },
+      'DOMINGO': { '24h': 878.81, '16h': 592.5,  '12h Diurno': 436.92, '12h Noturno': 441.89 }
+    };
+
+    const APPS = [
+      { id: 'relatorio', label: '📋 Relatório 193', href: './index.html' },
+      { id: 'triagem',   label: '🚑 Triagem',       href: './triagem.html' },
+      { id: 'ac4',       label: '📝 AC4',           href: './ac4.html' }
+    ];
+
+    function currentPage(){
+      const p = (location.pathname.split('/').pop() || '').toLowerCase();
+      return p === '' ? 'index.html' : p;
+    }
+
+    function renderTabs(){
+      const nav = document.getElementById('appTabs');
+      if (!nav) return;
+      const cur = currentPage();
+      nav.innerHTML = APPS.map(a => {
+        const file = (a.href.split('/').pop() || 'index.html').toLowerCase();
+        const active = (file === cur);
+        return `<a class="tab ${active ? 'active' : ''}" href="${a.href}" data-app="${a.id}">${a.label}</a>`;
+      }).join('');
+    }
+
+    let currentUserRG = '';
+    let userProfile = null;
+    let selectedDates = [];
+    let selectedCourses = [];
+    let availableCourses = [];
+    let sessionToken = '';
+
+    function showError(message) {
+      document.getElementById('statusMessage').innerHTML = `<div class="error">${message}</div>`;
+    }
+
+    function showSuccess(message) {
+      const div = document.getElementById('statusMessage');
+      div.innerHTML = `<div class="success">${message}</div>`;
+      setTimeout(() => div.innerHTML = '', 3000);
+    }
+
+    function clearMessage() {
+      document.getElementById('statusMessage').innerHTML = '';
+    }
+
+    function resetUI() {
+      ['profileSection','coursesSection','vacancies','myApplications','adminSection','candidatesSection','userInfo']
+        .forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.getElementById('loginSection').classList.remove('hidden');
+      currentUserRG = '';
+      userProfile = null;
+      sessionToken = '';
+      localStorage.removeItem('10bbm_session');
+    }
+
+    function getDayOfWeek(dateString) {
+      const date = new Date(dateString + 'T00:00:00');
+      const days = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO'];
+      return days[date.getDay()];
+    }
+
+    function getPeriod(hours, time) {
+      const hoursNum = parseInt(hours);
+      if (hoursNum === 24) return '24h';
+      if (hoursNum === 16) return '16h';
+      if (hoursNum === 12) {
+        if (time && time.includes(':')) {
+          const hour = parseInt(time.split(':')[0]);
+          if (hour >= 18 || hour <= 6) return '12h Noturno';
+        }
+        return '12h Diurno';
+      }
+      return `${hoursNum}h`;
+    }
+
+    function calculateValue(dateString, hours, time) {
+      const dayOfWeek = getDayOfWeek(dateString);
+      const period = getPeriod(hours, time);
+      if (VALUE_TABLE[dayOfWeek] && VALUE_TABLE[dayOfWeek][period]) {
+        return VALUE_TABLE[dayOfWeek][period];
+      }
+      console.warn(`Valor não encontrado para ${dayOfWeek} - ${period}. Usando 300.00`);
+      return 300.00;
+    }
+
+    function showValuePreview() {
+      const vacanciesHours = document.getElementById('vacanciesHours').value || '12';
+      const vacanciesTime = document.getElementById('vacanciesTime').value || '';
+      const previewDiv = document.getElementById('valuePreview');
+      if (selectedDates.length > 0 && vacanciesHours) {
+        let html = '<strong>Valores do AC4 Calculados:</strong><br>';
+        selectedDates.forEach(date => {
+          const value = calculateValue(date, vacanciesHours, vacanciesTime);
+          const formatted = new Date(date + 'T00:00:00').toLocaleDateString('pt-BR');
+          html += `<div style="margin:4px 0;font-size:14px">${formatted} (${getDayOfWeek(date)}) - ${getPeriod(vacanciesHours, vacanciesTime)}: <strong>R$ ${value.toFixed(2)}</strong></div>`;
+        });
+        previewDiv.innerHTML = html;
+      } else {
+        previewDiv.innerHTML = '<em>Adicione datas para ver os valores calculados automaticamente</em>';
+      }
+    }
+
+    function saveSession(rg, token) {
+      localStorage.setItem('10bbm_session', JSON.stringify({ rg, token, timestamp: Date.now() }));
+    }
+
+    function getSession() {
+      try { return JSON.parse(localStorage.getItem('10bbm_session') || 'null'); }
+      catch(e){ return null; }
+    }
+
+    function clearSession() { localStorage.removeItem('10bbm_session'); }
+
+    const SUPABASE_URL = 'https://elakajrqhnpgvbeeuope.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_L_Ax840Q1hsGM3xdKHX0rQ_eW_ROare';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const rgToEmail = (rg) => `${String(rg).trim()}@cbmgo.local`;
+
+    async function apiJSONP(path) {
+      const qs = new URLSearchParams(path.replace(/^\?/, ''));
+      const action = qs.get('action');
+      try {
+        if (action === 'registerUser') {
+          const rg = qs.get('rg');
+          const password = qs.get('password');
+          const { data, error } = await supabaseClient.auth.signUp({ email: rgToEmail(rg), password });
+          if (error) return { success: false, message: error.message };
+          const { error: errProf } = await supabaseClient.from('usuarios').insert([{ id: data.user.id, rg, is_admin: false }]);
+          if (errProf) return { success: false, message: errProf.message };
+          return { success: true };
+        }
+
+        if (action === 'login') {
+          const rg = qs.get('rg');
+          const password = qs.get('password');
+          const { data, error } = await supabaseClient.auth.signInWithPassword({ email: rgToEmail(rg), password });
+          if (error) return { success: false, message: 'RG ou senha inválidos.' };
+          const { data: prof, error: errProf } = await supabaseClient.from('usuarios').select('*').eq('id', data.user.id).single();
+          if (errProf) return { success: false, message: errProf.message };
+          const { data: esps } = await supabaseClient.from('usuarios_especialidades').select('cursos(nome)').eq('usuario_id', data.user.id);
+          const especialidade = (esps || []).map(e => e.cursos?.nome).filter(Boolean).join(', ');
+          return { success: true, token: data.session.access_token, profile: { ...prof, especialidade } };
+        }
+
+        if (action === 'logout') { await supabaseClient.auth.signOut(); return { success: true }; }
+
+        if (action === 'verifySession') {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          if (!session) return { success: false, message: 'Sessão inválida' };
+          const { data: prof } = await supabaseClient.from('usuarios').select('*').eq('id', session.user.id).single();
+          return { success: true, profile: prof };
+        }
+
+        if (action === 'checkAdminPermission') {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          if (!session) return { success: false, isAdmin: false };
+          const { data: prof } = await supabaseClient.from('usuarios').select('is_admin').eq('id', session.user.id).single();
+          return { success: true, isAdmin: !!prof?.is_admin };
+        }
+
+        if (action === 'getUserProfile') {
+          const rg = qs.get('rg');
+          const { data: prof, error } = await supabaseClient.from('usuarios').select('*').eq('rg', rg).single();
+          if (error) return { success: false, message: error.message };
+          const { data: esps } = await supabaseClient.from('usuarios_especialidades').select('cursos(nome)').eq('usuario_id', prof.id);
+          const especialidade = (esps || []).map(e => e.cursos?.nome).filter(Boolean).join(', ');
+          return { success: true, data: { ...prof, especialidade } };
+        }
+
+        if (action === 'getCourses') {
+          const { data, error } = await supabaseClient.from('cursos').select('nome, abreviacao').order('nome');
+          if (error) return { success: false, message: error.message };
+          return { success: true, courses: (data || []).map(c => ({ curso: c.nome, abreviacao: c.abreviacao })) };
+        }
+
+        if (action === 'updateUserSpecialties') {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          if (!session) return { success: false, message: 'Não autenticado' };
+          const specialties = (qs.get('specialties') || '').split(',').map(s => s.trim()).filter(Boolean);
+          await supabaseClient.from('usuarios_especialidades').delete().eq('usuario_id', session.user.id);
+          for (const nome of specialties) {
+            const { data: curso } = await supabaseClient.from('cursos').select('id').eq('nome', nome).single();
+            if (curso) await supabaseClient.from('usuarios_especialidades').insert([{ usuario_id: session.user.id, curso_id: curso.id }]);
+          }
+          return { success: true };
+        }
+
+        if (action === 'listVacancies') {
+          const { data, error } = await supabaseClient.from('vagas').select('*').order('data', { ascending: true });
+          if (error) return { success: false, message: error.message };
+          return {
+            success: true,
+            vacancies: (data || []).map(v => ({
+              Id: v.id, Local: v.local, Data: v.data, Horario: v.horario, Dia: v.dia,
+              'Especialização': v.especializacao, Valores: v.valores, Horas: v.horas,
+              Vagas: v.vagas_qtd, 'Observações': v.observacoes
+            }))
+          };
+        }
+
+        if (action === 'generateVacancies') {
+          const config = JSON.parse(qs.get('config'));
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          if (!session) return { success: false, message: 'Não autenticado' };
+          const registros = config.dias.map(d => ({
+            local: config.local,
+            data: d,
+            horario: config.horario,
+            dia: config.vagasIndividuais.find(v => v.date === d)?.dayOfWeek || '',
+            especializacao: config.especializacao,
+            valores: config.vagasIndividuais.find(v => v.date === d)?.value || '',
+            horas: parseInt(config.horas),
+            vagas_qtd: 1,
+            observacoes: config.observacoes,
+            criado_por: session.user.id
+          }));
+          const totalVagas = parseInt(config.vagas) || 1;
+          const todosRegistros = [];
+          for (let i = 0; i < totalVagas; i++) todosRegistros.push(...registros);
+          const { data, error } = await supabaseClient.from('vagas').insert(todosRegistros).select();
+          if (error) return { success: false, message: error.message };
+          return {
+            success: true,
+            vacancies: data.map(v => ({ id: v.id, data: v.data, dia: v.dia, local: v.local, valor: v.valores }))
+          };
+        }
+
+        if (action === 'listMyApplications') {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          if (!session) return { success: false, message: 'Não autenticado' };
+          const { data, error } = await supabaseClient.from('candidaturas')
+            .select('*, vagas(*), usuarios(nome)')
+            .eq('usuario_id', session.user.id)
+            .order('candidatado_em', { ascending: false });
+          if (error) return { success: false, message: error.message };
+          return {
+            success: true,
+            applications: (data || []).map(a => ({
+              idVaga: a.vaga_id, Nome: a.usuarios?.nome || '', Horas: a.vagas?.horas,
+              Data: a.vagas?.data, Horario: a.vagas?.horario, Especialização: a.vagas?.especializacao,
+              Local: a.vagas?.local, Valor: a.vagas?.valores, Status: a.status,
+              Especialista: a.especialista ? 'Sim' : 'Não'
+            }))
+          };
+        }
+
+        if (action === 'apply') {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          if (!session) return { success: false, message: 'Não autenticado' };
+          const idVaga = parseInt(qs.get('idVaga'));
+          const { data: vaga } = await supabaseClient.from('vagas').select('especializacao').eq('id', idVaga).single();
+          const { data: esps } = await supabaseClient.from('usuarios_especialidades').select('cursos(nome)').eq('usuario_id', session.user.id);
+          const temEsp = (esps || []).some(e => e.cursos?.nome === vaga?.especializacao);
+          const { error } = await supabaseClient.from('candidaturas').insert([{
+            usuario_id: session.user.id, vaga_id: idVaga, especialista: temEsp
+          }]);
+          if (error) {
+            if (error.code === '23505') return { success: false, message: 'Você já se candidatou a esta vaga.' };
+            return { success: false, message: error.message };
+          }
+          return { success: true, isSpecialist: temEsp };
+        }
+
+        if (action === 'listAllApplications' || action === 'listApprovedApplications') {
+          const onlyApproved = action === 'listApprovedApplications';
+          let query = supabaseClient.from('candidaturas')
+            .select('*, vagas(*), usuarios(nome, saldo, graduacao)')
+            .order('candidatado_em', { ascending: true });
+          if (onlyApproved) query = query.eq('status', 'Homologado');
+          const { data, error } = await query;
+          if (error) return { success: false, message: error.message };
+          return {
+            success: true,
+            applications: (data || []).map(a => ({
+              rowIndex: a.id, idVaga: a.vaga_id, nome: a.usuarios?.nome || '', userId: a.usuario_id,
+              local: a.vagas?.local, data: a.vagas?.data, horario: a.vagas?.horario,
+              especializacao: a.vagas?.especializacao, saldo: a.usuarios?.saldo,
+              horas: a.vagas?.horas, valor: a.vagas?.valores, status: a.status,
+              especialista: a.especialista ? 'Sim' : 'Não'
+            }))
+          };
+        }
+
+        if (action === 'approveApplication') {
+          const rowIndex = parseInt(qs.get('rowIndex'));
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          const { error } = await supabaseClient.from('candidaturas')
+            .update({ status: 'Homologado', homologado_em: new Date().toISOString(), homologado_por: session?.user.id })
+            .eq('id', rowIndex);
+          if (error) return { success: false, message: error.message };
+          return { success: true };
+        }
+
+        return { success: false, message: 'Ação desconhecida: ' + action };
+      } catch (err) {
+        console.error('Erro compat layer:', err);
+        return { success: false, message: err.message };
+      }
+    }
+
+    async function handleRegister() {
+      clearMessage();
+      const rg = document.getElementById('rg').value.trim();
+      const pass = document.getElementById('password').value;
+      if (!rg || !pass) return showError('Preencha RG e senha');
+      if (pass.length < 4) return showError('A senha deve ter pelo menos 4 caracteres');
+      try {
+        const r = await apiJSONP('?action=registerUser&rg=' + encodeURIComponent(rg) + '&password=' + encodeURIComponent(pass));
+        if (r.success) {
+          showSuccess('Cadastro realizado com sucesso! Faça login.');
+          document.getElementById('rg').value = '';
+          document.getElementById('password').value = '';
+        } else {
+          showError(r.message);
+        }
+      } catch (e) {
+        showError(`Erro no cadastro: ${e.message}`);
+      }
+    }
+
+    async function handleLogin() {
+      clearMessage();
+      const rg = document.getElementById('rg').value.trim();
+      const pass = document.getElementById('password').value;
+      if (!rg || !pass) return showError('Preencha RG e senha');
+      try {
+        const loginResult = await apiJSONP('?action=login&rg=' + encodeURIComponent(rg) + '&password=' + encodeURIComponent(pass));
+        if (!loginResult.success) return showError(loginResult.message);
+
+        currentUserRG = rg;
+        userProfile = loginResult.profile;
+        sessionToken = loginResult.token;
+        saveSession(rg, sessionToken);
+
+        if (userProfile && userProfile.must_change_password) {
+          abrirModalTrocaSenha();
+          return;
+        }
+
+        showSuccess('Login realizado com sucesso!');
+        document.getElementById('rg').value = '';
+        document.getElementById('password').value = '';
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('userInfo').classList.remove('hidden');
+        document.getElementById('userName').textContent = currentUserRG;
+
+        const adminCheck = await apiJSONP('?action=checkAdminPermission&rg=' + encodeURIComponent(currentUserRG));
+        if (adminCheck.success && adminCheck.isAdmin) showAdminButton();
+
+        showVacanciesSection();
+      } catch (e) {
+        showError(`Erro no login: ${e.message}`);
+      }
+    }
+
+    async function handleLogout() {
+      try {
+        if (currentUserRG && sessionToken) {
+          await apiJSONP('?action=logout&rg=' + encodeURIComponent(currentUserRG) + '&token=' + encodeURIComponent(sessionToken));
+        }
+      } catch (error) {
+        console.log('Logout local');
+      } finally {
+        clearSession();
+        resetUI();
+        showSuccess('Logout realizado com sucesso!');
+      }
+    }
+
+    async function checkExistingSession() {
+      const session = getSession();
+      if (!session) return false;
+      if (Date.now() - session.timestamp > 24 * 60 * 60 * 1000) {
+        clearSession();
+        return false;
+      }
+      try {
+        const sessionCheck = await apiJSONP('?action=verifySession&rg=' + encodeURIComponent(session.rg) + '&token=' + encodeURIComponent(session.token));
+        if (sessionCheck.success) {
+          currentUserRG = session.rg;
+          userProfile = sessionCheck.profile;
+          sessionToken = session.token;
+
+          if (userProfile && userProfile.must_change_password) {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('userInfo').classList.remove('hidden');
+            document.getElementById('userName').textContent = currentUserRG;
+            abrirModalTrocaSenha();
+            return true;
+          }
+
+          document.getElementById('loginSection').classList.add('hidden');
+          document.getElementById('userInfo').classList.remove('hidden');
+          document.getElementById('userName').textContent = currentUserRG;
+
+          const adminCheck = await apiJSONP('?action=checkAdminPermission&rg=' + encodeURIComponent(currentUserRG));
+          if (adminCheck.success && adminCheck.isAdmin) showAdminButton();
+
+          showVacanciesSection();
+          return true;
+        }
+      } catch (e) {
+        console.warn('Sessão inválida:', e);
+      }
+      clearSession();
+      return false;
+    }
+
+    function showVacanciesSection() {
+      ['profileSection','coursesSection','adminSection','candidatesSection','myApplications']
+        .forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.getElementById('vacancies').classList.remove('hidden');
+      if (currentUserRG) loadVacancies();
+    }
+
+    function showMyApplicationsSection() {
+      ['profileSection','coursesSection','adminSection','candidatesSection','vacancies']
+        .forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.getElementById('myApplications').classList.remove('hidden');
+      if (currentUserRG) loadMyApplications();
+    }
+
+    async function showProfileSection() {
+      ['vacancies','myApplications','coursesSection','adminSection','candidatesSection']
+        .forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.getElementById('profileSection').classList.remove('hidden');
+      await loadProfileInfo();
+    }
+
+    async function showCoursesSection() {
+      ['profileSection','vacancies','myApplications','adminSection','candidatesSection']
+        .forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.getElementById('coursesSection').classList.remove('hidden');
+      await loadCourses();
+    }
+
+    function showAdminSection() {
+      ['profileSection','coursesSection','vacancies','myApplications','candidatesSection']
+        .forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.getElementById('adminSection').classList.remove('hidden');
+      selectedDates = [];
+      updateDatesList();
+      loadSpecializationsForAdmin();
+      showValuePreview();
+    }
+
+    function showCandidatesSection() {
+      ['profileSection','coursesSection','vacancies','myApplications','adminSection']
+        .forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.getElementById('candidatesSection').classList.remove('hidden');
+      document.getElementById('candidatesList').innerHTML = 'Selecione uma opção acima para visualizar os candidatos';
+    }
+
+    async function loadProfileInfo() {
+      const div = document.getElementById('profileInfo');
+      div.innerHTML = '<div class="loading">Carregando perfil...</div>';
+      try {
+        const profile = await apiJSONP('?action=getUserProfile&rg=' + encodeURIComponent(currentUserRG));
+        if (!profile.success) throw new Error(profile.message);
+        userProfile = profile.data;
+        const safe = (v) => v ?? '—';
+        div.innerHTML = `
+          <div class="profile-info">
+            <div class="profile-field"><strong>RG:</strong> ${safe(userProfile.rg)}</div>
+            <div class="profile-field"><strong>Graduação:</strong> ${safe(userProfile.graduacao)}</div>
+            <div class="profile-field"><strong>Nome:</strong> ${safe(userProfile.nome)}</div>
+            <div class="profile-field"><strong>Nome Completo:</strong> ${safe(userProfile.nome_completo)}</div>
+            <div class="profile-field"><strong>Profissão:</strong> ${safe(userProfile.profissao)}</div>
+            <div class="profile-field"><strong>ALA:</strong> ${safe(userProfile.ala)}</div>
+            <div class="profile-field"><strong>Saldo:</strong> ${safe(userProfile.saldo)}</div>
+            <div class="profile-field"><strong>Horas:</strong> ${safe(userProfile.horas)}</div>
+          </div>`;
+        await loadCurrentSpecialties();
+      } catch (e) {
+        div.innerHTML = `<div class="error">Erro ao carregar perfil: ${e.message}</div>`;
+      }
+    }
+
+    async function loadCurrentSpecialties() {
+      const div = document.getElementById('currentSpecialties');
+      if (userProfile && userProfile.especialidade) {
+        const specialties = userProfile.especialidade.split(',').map(s => s.trim()).filter(Boolean);
+        div.innerHTML = specialties.length > 0
+          ? specialties.map(s => `<span class="specialty-tag">${s}</span>`).join('')
+          : '<em>Nenhuma especialidade cadastrada</em>';
+      } else {
+        div.innerHTML = '<em>Nenhuma especialidade cadastrada</em>';
+      }
+    }
+
+    async function loadCourses() {
+      const div = document.getElementById('coursesList');
+      div.innerHTML = '<div class="loading">Carregando cursos disponíveis...</div>';
+      try {
+        const response = await apiJSONP('?action=getCourses');
+        if (!response.success) throw new Error(response.message);
+        availableCourses = response.courses;
+        const currentSpecialties = userProfile && userProfile.especialidade
+          ? userProfile.especialidade.split(',').map(s => s.trim()).filter(Boolean) : [];
+        selectedCourses = [...currentSpecialties];
+        div.innerHTML = '';
+        if (availableCourses.length === 0) {
+          div.innerHTML = '<div class="error">Nenhum curso encontrado na base de dados</div>';
+          return;
+        }
+        availableCourses.forEach(course => {
+          const isSelected = selectedCourses.includes(course.curso);
+          const el = document.createElement('div');
+          el.className = `course-item ${isSelected ? 'selected-course' : ''}`;
+          el.innerHTML = `<strong>${course.curso}</strong> (${course.abreviacao})`;
+          el.onclick = () => toggleCourse(course.curso);
+          div.appendChild(el);
+        });
+        updateSelectedCoursesDisplay();
+      } catch (e) {
+        div.innerHTML = `<div class="error">Erro ao carregar cursos: ${e.message}</div>`;
+      }
+    }
+
+    function toggleCourse(courseName) {
+      if (selectedCourses.includes(courseName)) {
+        selectedCourses = selectedCourses.filter(c => c !== courseName);
+      } else {
+        selectedCourses.push(courseName);
+      }
+      document.querySelectorAll('.course-item').forEach(item => {
+        if (item.textContent.includes(courseName)) {
+          item.classList.toggle('selected-course', selectedCourses.includes(courseName));
+        }
+      });
+      updateSelectedCoursesDisplay();
+    }
+
+    function updateSelectedCoursesDisplay() {
+      const div = document.getElementById('selectedCourses');
+      div.innerHTML = selectedCourses.length > 0
+        ? `<h4>Especialidades Selecionadas:</h4>${selectedCourses.map(c => `<span class="specialty-tag">${c}</span>`).join('')}`
+        : '<em>Nenhuma especialidade selecionada</em>';
+    }
+
+    async function saveSpecialties() {
+      const specialtiesString = selectedCourses.join(', ');
+      try {
+        const response = await apiJSONP('?action=updateUserSpecialties&rg=' + encodeURIComponent(currentUserRG) + '&specialties=' + encodeURIComponent(specialtiesString));
+        if (response.success) {
+          showSuccess('Especialidades atualizadas com sucesso!');
+          if (userProfile) userProfile.especialidade = specialtiesString;
+          showProfileSection();
+        } else {
+          showError(response.message);
+        }
+      } catch (e) {
+        showError(`Erro ao salvar especialidades: ${e.message}`);
+      }
+    }
+
+    async function loadVacancies() {
+      const div = document.getElementById('vacancyList');
+      div.innerHTML = '<div class="loading">Carregando vagas disponíveis...</div>';
+      try {
+        const resp = await apiJSONP('?action=listVacancies');
+        if (!resp.success) throw new Error(resp.message || 'Erro ao carregar vagas');
+
+        let myApps = { applications: [] };
+        try { myApps = await apiJSONP('?action=listMyApplications&userId=' + encodeURIComponent(currentUserRG)); } catch (e) {}
+
+        const appliedIds = new Set();
+        if (myApps.success) myApps.applications.forEach(app => appliedIds.add(String(app.idVaga)));
+
+        const available = resp.vacancies.filter(v => !appliedIds.has(String(v.Id)));
+        if (available.length === 0) {
+          div.innerHTML = '<div class="loading">Nenhuma vaga disponível no momento.</div>';
+          return;
+        }
+
+        div.innerHTML = `<p><strong>${available.length} vaga(s) disponível(eis)</strong></p>`;
+        available.forEach(v => {
+          const el = document.createElement('div');
+          el.className = 'vacancy-item';
+          el.innerHTML = `
+            <div style="margin-bottom:12px">
+              <strong style="color:var(--primary)">Vaga ${v.Id}</strong><br>
+              <strong>Local:</strong> ${v.Local || 'Não informado'}<br>
+              <strong>Data:</strong> ${v.Data || 'Não informada'} ${v.Horario || ''}<br>
+              <strong>Dia:</strong> ${v.Dia || 'Não informado'}<br>
+              <strong>Especialização:</strong> ${v.Especialização || 'Não informada'}<br>
+              <strong>Valor:</strong> ${v.Valores || 'Não informado'}<br>
+              <strong>Horas:</strong> ${v.Horas || 'Não informado'}<br>
+              <strong>Vagas disponíveis:</strong> ${v.Vagas || '1'}<br>
+              ${v.Observações ? `<strong>Observações:</strong> ${v.Observações}<br>` : ''}
+            </div>
+            <button data-id="${v.Id}" class="apply-btn">Candidatar-se</button>`;
+          div.appendChild(el);
+        });
+        document.querySelectorAll('.apply-btn').forEach(b => { b.onclick = onApply; });
+      } catch (e) {
+        div.innerHTML = `<div class="error">Erro ao carregar vagas: ${e.message}</div>`;
+      }
+    }
+
+    async function onApply(e) {
+      const idVaga = e.currentTarget.dataset.id;
+      const button = e.currentTarget;
+      if (!idVaga) return showError('ID da vaga não encontrado');
+
+      let vagaInfo = '';
+      let vagaEspecializacao = '';
+      try {
+        const vacancies = await apiJSONP('?action=listVacancies');
+        if (vacancies.success) {
+          const vaga = vacancies.vacancies.find(v => String(v.Id) === String(idVaga));
+          if (vaga) {
+            vagaEspecializacao = vaga.Especialização || 'Nenhuma';
+            vagaInfo = `\n\nEspecialização Requerida: ${vagaEspecializacao}`;
+          }
+        }
+      } catch (e) {}
+
+      if (!confirm(`Confirmar candidatura na vaga ${idVaga}?${vagaInfo}`)) return;
+
+      button.disabled = true;
+      button.textContent = 'Enviando...';
+
+      try {
+        const resp = await apiJSONP('?action=apply&userId=' + encodeURIComponent(currentUserRG) + '&userName=' + encodeURIComponent(currentUserRG) + '&idVaga=' + encodeURIComponent(idVaga));
+        if (resp.success) {
+          const isSpecialist = resp.isSpecialist === true;
+          if (isSpecialist) {
+            showSuccess(`✅ Candidatura na vaga ${idVaga} registrada! (ESPECIALISTA em ${vagaEspecializacao})`);
+          } else {
+            showSuccess(`✅ Candidatura na vaga ${idVaga} registrada! (NÃO ESPECIALISTA)`);
+          }
+          await loadVacancies();
+          await loadMyApplications();
+        } else {
+          showError(resp.message || 'Erro ao realizar candidatura');
+          button.disabled = false;
+          button.textContent = 'Candidatar-se';
+        }
+      } catch (err) {
+        showError(`❌ Erro na candidatura: ${err.message}`);
+        button.disabled = false;
+        button.textContent = 'Candidatar-se';
+      }
+    }
+
+    async function loadMyApplications() {
+      const div = document.getElementById('appliedList');
+      div.innerHTML = '<div class="loading">Carregando suas candidaturas...</div>';
+      try {
+        const resp = await apiJSONP('?action=listMyApplications&userId=' + encodeURIComponent(currentUserRG));
+        if (!resp.success) throw new Error(resp.message || 'Erro ao carregar candidaturas');
+        if (!resp.applications || resp.applications.length === 0) {
+          div.innerHTML = '<div class="loading">Você ainda não se candidatou a nenhuma vaga.</div>';
+          return;
+        }
+        div.innerHTML = `<p><strong>${resp.applications.length} candidatura(s) realizada(s)</strong></p>`;
+        resp.applications.forEach(a => {
+          const el = document.createElement('div');
+          el.className = 'vacancy-item';
+          const homologado = a.Status && a.Status.toLowerCase() === 'homologado';
+          const statusColor = homologado ? 'var(--ok)' : 'var(--warn)';
+          const statusBackground = homologado ? 'rgba(22,163,74,.15)' : 'rgba(217,119,6,.15)';
+
+          const espBadge = a.Especialista === 'Sim'
+            ? `<span style="background:var(--info);color:#fff;padding:2px 6px;border-radius:4px;font-size:12px;margin-left:8px">ESPECIALISTA</span>`
+            : `<span style="background:var(--muted);color:#fff;padding:2px 6px;border-radius:4px;font-size:12px;margin-left:8px">NÃO ESP.</span>`;
+
+          el.innerHTML = `
+            <div>
+              <strong style="color:var(--ok)">Vaga ${a.idVaga}</strong>${espBadge}<br>
+              <strong>Candidato:</strong> ${a.Nome}<br>
+              ${a.Horas ? `<strong>Horas:</strong> ${a.Horas}h<br>` : ''}
+              ${a.Data ? `<strong>Data:</strong> ${a.Data} ${a.Horario || ''}<br>` : ''}
+              ${a.Especialização ? `<strong>Especialização:</strong> ${a.Especialização}<br>` : ''}
+              ${a.Local ? `<strong>Local:</strong> ${a.Local}<br>` : ''}
+              ${a.Valor ? `<strong>Valor:</strong> ${a.Valor}<br>` : ''}
+              <div style="background:${statusBackground};color:${statusColor};padding:4px 8px;border-radius:4px;display:inline-block;margin-top:4px;border:1px solid ${statusColor}">
+                <strong>Status:</strong> ${a.Status || 'Candidatado'}
+              </div>
+            </div>`;
+          div.appendChild(el);
+        });
+      } catch (e) {
+        div.innerHTML = `<div class="error">Erro ao carregar candidaturas: ${e.message}</div>`;
+      }
+    }
+
+    function showAdminButton() {
+      const buttonGroup = document.getElementById('userInfo').querySelector('.button-group');
+      buttonGroup.querySelectorAll('#btnAdmin, #btnCandidates').forEach(btn => btn.remove());
+
+      const adminButton = document.createElement('button');
+      adminButton.id = 'btnAdmin';
+      adminButton.className = 'btn-success';
+      adminButton.textContent = 'Gerar Vagas (Admin)';
+      adminButton.onclick = showAdminSection;
+      buttonGroup.appendChild(adminButton);
+
+      const candidatesButton = document.createElement('button');
+      candidatesButton.id = 'btnCandidates';
+      candidatesButton.className = 'btn-success';
+      candidatesButton.textContent = 'Gerenciar Candidatos';
+      candidatesButton.onclick = showCandidatesSection;
+      buttonGroup.appendChild(candidatesButton);
+    }
+
+    function updateDatesList() {
+      const datesList = document.getElementById('datesList');
+      if (selectedDates.length === 0) {
+        datesList.innerHTML = '<em>Nenhuma data selecionada</em>';
+        return;
+      }
+      datesList.innerHTML = selectedDates.map(date => {
+        const formattedDate = new Date(date + 'T00:00:00').toLocaleDateString('pt-BR');
+        const dayOfWeek = getDayOfWeek(date);
+        const value = calculateValue(date, document.getElementById('vacanciesHours').value || '12', document.getElementById('vacanciesTime').value || '');
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <span>${formattedDate} (${dayOfWeek})</span><br>
+              <small style="color:var(--ok);font-weight:bold">R$ ${value.toFixed(2)}</small>
+            </div>
+            <button onclick="removeDate('${date}')" style="background:var(--danger);color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:12px;width:auto;margin:0">×</button>
+          </div>`;
+      }).join('');
+    }
+
+    function removeDate(date) {
+      selectedDates = selectedDates.filter(d => d !== date);
+      updateDatesList();
+      showValuePreview();
+    }
+
+    function addDate() {
+      const datePicker = document.getElementById('datePicker');
+      const date = datePicker.value;
+      if (date && !selectedDates.includes(date)) {
+        selectedDates.push(date);
+        updateDatesList();
+        datePicker.value = '';
+        showValuePreview();
+      }
+    }
+
+    function clearDates() {
+      selectedDates = [];
+      updateDatesList();
+      document.getElementById('valuePreview').innerHTML = '<em>Adicione datas para ver os valores calculados automaticamente</em>';
+    }
+
+    async function generateVacancies() {
+      const vacanciesCount = document.getElementById('vacanciesCount').value;
+      const vacanciesHours = document.getElementById('vacanciesHours').value;
+      const vacanciesTime = document.getElementById('vacanciesTime').value;
+      const vacanciesSpecialization = document.getElementById('vacanciesSpecialization').value;
+      const vacanciesLocation = document.getElementById('vacanciesLocation').value;
+      const vacanciesObservations = document.getElementById('vacanciesObservations').value;
+
+      if (!vacanciesCount || !vacanciesHours || !vacanciesTime || !vacanciesSpecialization || !vacanciesLocation) {
+        return showError('Preencha todos os campos obrigatórios');
+      }
+      if (selectedDates.length === 0) return showError('Selecione pelo menos uma data');
+
+      const vagasIndividuais = selectedDates.map(date => {
+        const value = calculateValue(date, vacanciesHours, vacanciesTime);
+        return {
+          date,
+          value: `R$ ${value.toFixed(2).replace('.', ',')}`,
+          dayOfWeek: getDayOfWeek(date),
+          period: getPeriod(vacanciesHours, vacanciesTime)
+        };
+      });
+
+      const config = {
+        vagas: parseInt(vacanciesCount),
+        horas: vacanciesHours,
+        horario: vacanciesTime,
+        especializacao: vacanciesSpecialization,
+        local: vacanciesLocation,
+        observacoes: vacanciesObservations,
+        dias: selectedDates,
+        vagasIndividuais
+      };
+
+      const resultDiv = document.getElementById('generationResult');
+      resultDiv.innerHTML = '<div class="loading">Gerando vagas...</div>';
+
+      try {
+        const response = await apiJSONP('?action=generateVacancies&config=' + encodeURIComponent(JSON.stringify(config)) + '&userRG=' + encodeURIComponent(currentUserRG));
+        if (response.success) {
+          resultDiv.innerHTML = `
+            <div class="success">
+              <strong>Vagas criadas (${response.vacancies.length}):</strong>
+              <ul style="margin:8px 0;padding-left:20px">
+                ${response.vacancies.map(v => `<li>ID: ${v.id} - ${v.data} (${v.dia}) - ${v.local} - ${v.valor}</li>`).join('')}
+              </ul>
+            </div>`;
+          document.getElementById('vacanciesCount').value = '';
+          document.getElementById('vacanciesTime').value = '';
+          document.getElementById('vacanciesSpecialization').value = '';
+          document.getElementById('vacanciesObservations').value = '';
+          selectedDates = [];
+          updateDatesList();
+          clearDates();
+        } else {
+          resultDiv.innerHTML = `<div class="error">❌ ${response.message}</div>`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="error">❌ Erro ao gerar vagas: ${error.message}</div>`;
+      }
+    }
+
+    async function loadSpecializationsForAdmin() {
+      const select = document.getElementById('vacanciesSpecialization');
+      try {
+        const response = await apiJSONP('?action=getCourses');
+        if (response.success && response.courses.length > 0) {
+          while (select.children.length > 1) select.removeChild(select.lastChild);
+          response.courses.forEach(course => {
+            const option = document.createElement('option');
+            option.value = course.curso;
+            option.textContent = course.curso;
+            select.appendChild(option);
+          });
+        } else {
+          replaceSelectWithInput();
+        }
+      } catch (error) {
+        replaceSelectWithInput();
+      }
+    }
+
+    function replaceSelectWithInput() {
+      const select = document.getElementById('vacanciesSpecialization');
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.id = 'vacanciesSpecialization';
+      input.placeholder = 'Especialização';
+      input.required = true;
+      select.parentNode.replaceChild(input, select);
+    }
+
+    async function loadAllCandidates() {
+      const div = document.getElementById('candidatesList');
+      div.innerHTML = '<div class="loading">Carregando candidatos pendentes...</div>';
+      try {
+        const response = await apiJSONP('?action=listAllApplications');
+        if (!response.success) throw new Error(response.message);
+
+        const pending = response.applications.filter(app => !app.status || app.status.toLowerCase() !== 'homologado');
+        if (pending.length === 0) {
+          div.innerHTML = `<div class="loading"><p>Nenhum candidato pendente.</p><p><small>Total na base: ${response.applications.length}</small></p></div>`;
+          return;
+        }
+
+        div.innerHTML = `<h3>Candidatos Pendentes (${pending.length})</h3>
+          <div style="margin-bottom:16px;font-size:14px;color:var(--muted)">
+            Ordene por <strong>menor saldo</strong> primeiro para priorizar.
+          </div>`;
+
+        pending.sort((a, b) => (parseFloat(a.saldo) || 0) - (parseFloat(b.saldo) || 0));
+
+        pending.forEach((c, index) => {
+          const card = document.createElement('div');
+          card.className = 'vacancy-item';
+          card.style.cssText = 'position:relative;padding:16px;margin-bottom:12px;border:1px solid var(--border);border-radius:8px;background:var(--card)';
+
+          const positionBadge = `<span style="background:#6f42c1;color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;position:absolute;top:10px;left:10px">#${index + 1}</span>`;
+          const statusText = c.status || 'Candidatado';
+          const statusBadge = `<span style="background:rgba(217,119,6,.15);color:var(--warn);padding:4px 8px;border-radius:4px;font-size:12px;position:absolute;top:10px;right:10px;border:1px solid var(--warn);font-weight:bold">${statusText.toUpperCase()}</span>`;
+          const espBadge = c.especialista === 'Sim'
+            ? `<span style="background:var(--info);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:8px">ESPECIALISTA</span>`
+            : `<span style="background:var(--muted);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:8px">NÃO ESP.</span>`;
+
+          card.innerHTML = `
+            ${positionBadge}${statusBadge}
+            <div style="padding-right:120px;padding-left:50px">
+              <strong style="color:var(--primary)">Vaga ${c.idVaga}</strong>${espBadge}<br>
+              <strong>Candidato:</strong> ${c.nome} (${c.userId})<br>
+              <strong>Local:</strong> ${c.local}<br>
+              <strong>Data/Horário:</strong> ${c.data} ${c.horario}<br>
+              <strong>Especialização:</strong> ${c.especializacao}<br>
+              <strong>Saldo:</strong> <span style="font-weight:bold;color:var(--danger)">${c.saldo || '0'}</span><br>
+              ${c.horas ? `<strong>Horas:</strong> ${c.horas}h<br>` : ''}
+              ${c.valor ? `<strong>Valor:</strong> ${c.valor}<br>` : ''}
+            </div>
+            <div class="button-group" style="margin-top:12px">
+              <button onclick="approveCandidate('${c.rowIndex}')" class="btn-success" style="padding:8px 16px">✅ Homologar</button>
+            </div>`;
+          div.appendChild(card);
+        });
+      } catch (error) {
+        div.innerHTML = `<div class="error">Erro: ${error.message}</div>`;
+      }
+    }
+
+    async function loadApprovedCandidates() {
+      const div = document.getElementById('candidatesList');
+      div.innerHTML = '<div class="loading">Carregando candidatos homologados...</div>';
+      try {
+        const response = await apiJSONP('?action=listApprovedApplications');
+        if (!response.success) throw new Error(response.message);
+        if (response.applications.length === 0) {
+          div.innerHTML = '<div class="loading">Nenhum candidato homologado.</div>';
+          return;
+        }
+
+        div.innerHTML = `<h3>Candidatos Homologados (${response.applications.length})</h3>
+          <div style="margin-bottom:16px;font-size:14px;color:var(--ok)">
+            ✅ <strong>Estes candidatos foram aprovados.</strong>
+          </div>`;
+
+        response.applications.sort((a, b) => (parseFloat(a.saldo) || 0) - (parseFloat(b.saldo) || 0));
+
+        response.applications.forEach((c, index) => {
+          const card = document.createElement('div');
+          card.className = 'vacancy-item';
+          card.style.cssText = 'position:relative;padding:16px;margin-bottom:12px;border:1px solid var(--ok);border-radius:8px;background:var(--card)';
+
+          const positionBadge = `<span style="background:#6f42c1;color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;position:absolute;top:10px;left:10px">#${index + 1}</span>`;
+          const espBadge = c.especialista === 'Sim'
+            ? `<span style="background:var(--info);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:8px">ESPECIALISTA</span>`
+            : `<span style="background:var(--muted);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:8px">NÃO ESP.</span>`;
+          const statusBadge = `<span style="background:rgba(22,163,74,.15);color:var(--ok);padding:4px 8px;border-radius:4px;font-size:12px;position:absolute;top:10px;right:10px;border:1px solid var(--ok);font-weight:bold">HOMOLOGADO</span>`;
+
+          card.innerHTML = `
+            ${positionBadge}${statusBadge}
+            <div style="padding-right:120px;padding-left:50px">
+              <strong style="color:var(--primary)">Vaga ${c.idVaga}</strong>${espBadge}<br>
+              <strong>Candidato:</strong> ${c.nome} (${c.userId})<br>
+              <strong>Local:</strong> ${c.local}<br>
+              <strong>Data/Horário:</strong> ${c.data} ${c.horario}<br>
+              <strong>Especialização:</strong> ${c.especializacao}<br>
+              <strong>Saldo:</strong> <span style="font-weight:bold;color:var(--danger)">${c.saldo || '0'}</span><br>
+              ${c.horas ? `<strong>Horas:</strong> ${c.horas}h<br>` : ''}
+              ${c.valor ? `<strong>Valor:</strong> ${c.valor}<br>` : ''}
+            </div>`;
+          div.appendChild(card);
+        });
+      } catch (error) {
+        div.innerHTML = `<div class="error">Erro: ${error.message}</div>`;
+      }
+    }
+
+    async function approveCandidate(rowIndex) {
+      if (!confirm('Tem certeza que deseja homologar este candidato?\n\nEle será aprovado para participar da vaga.')) return;
+      try {
+        const response = await apiJSONP('?action=approveApplication&rowIndex=' + encodeURIComponent(rowIndex) + '&userRG=' + encodeURIComponent(currentUserRG));
+        if (response.success) {
+          showSuccess('✅ Candidato homologado com sucesso!');
+          await loadAllCandidates();
+        } else {
+          showError('❌ ' + (response.message || 'Erro ao homologar'));
+        }
+      } catch (error) {
+        showError('❌ Erro ao homologar: ' + error.message);
+      }
+    }
+
+    function setupEventListeners() {
+      document.getElementById('btnLogin').onclick = handleLogin;
+      document.getElementById('btnRegister').onclick = handleRegister;
+      document.getElementById('btnLogout').onclick = handleLogout;
+      document.getElementById('btnProfile').onclick = () => showProfileSection();
+      document.getElementById('btnVacancies').onclick = () => showVacanciesSection();
+      document.getElementById('btnMyApplications').onclick = () => showMyApplicationsSection();
+      document.getElementById('btnBackFromProfile').onclick = () => showVacanciesSection();
+      document.getElementById('btnBackFromCourses').onclick = () => showProfileSection();
+      document.getElementById('btnAddSpecialties').onclick = async () => await showCoursesSection();
+      document.getElementById('btnCancelSpecialties').onclick = () => showProfileSection();
+      document.getElementById('btnSaveSpecialties').onclick = async () => await saveSpecialties();
+      document.getElementById('btnAddDate').onclick = addDate;
+      document.getElementById('btnClearDates').onclick = clearDates;
+      document.getElementById('btnGenerateVacancies').onclick = async () => await generateVacancies();
+      document.getElementById('btnViewCandidates').onclick = async () => await loadAllCandidates();
+      document.getElementById('btnViewApproved').onclick = async () => await loadApprovedCandidates();
+      document.getElementById('vacanciesHours').addEventListener('change', showValuePreview);
+      document.getElementById('vacanciesTime').addEventListener('change', showValuePreview);
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      renderTabs();
+      setupEventListeners();
+      await checkExistingSession();
+    });
+
+    function abrirModalTrocaSenha() {
+      const m = document.getElementById('modalTrocaSenha');
+      m.classList.remove('hidden');
+      m.style.display = 'flex';
+      document.getElementById('novaSenha').focus();
+    }
+
+    function fecharModalTrocaSenha() {
+      const m = document.getElementById('modalTrocaSenha');
+      m.classList.add('hidden');
+      m.style.display = 'none';
+      document.getElementById('novaSenha').value = '';
+      document.getElementById('confSenha').value = '';
+      document.getElementById('msgTrocaSenha').innerHTML = '';
+    }
+
+    async function salvarNovaSenha() {
+      const senha1 = document.getElementById('novaSenha').value;
+      const senha2 = document.getElementById('confSenha').value;
+      const msg = document.getElementById('msgTrocaSenha');
+      const btn = document.getElementById('btnSalvarNovaSenha');
+
+      msg.innerHTML = '';
+
+      if (senha1.length < 8) {
+        msg.innerHTML = '<span style="color:var(--danger)">A senha precisa ter no mínimo 8 caracteres.</span>';
+        return;
+      }
+      if (senha1 !== senha2) {
+        msg.innerHTML = '<span style="color:var(--danger)">As senhas não coincidem.</span>';
+        return;
+      }
+      if (senha1 === `${currentUserRG}cbmgo`) {
+        msg.innerHTML = '<span style="color:var(--danger)">A nova senha não pode ser igual à senha padrão.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+
+      try {
+        const { error: errAuth } = await supabaseClient.auth.updateUser({ password: senha1 });
+        if (errAuth) throw errAuth;
+
+        const { error: errProf } = await supabaseClient
+          .from('usuarios')
+          .update({ must_change_password: false })
+          .eq('rg', currentUserRG);
+        if (errProf) throw errProf;
+
+        userProfile.must_change_password = false;
+        fecharModalTrocaSenha();
+        showSuccess('✅ Senha alterada! Bem-vindo(a).');
+
+        const adminCheck = await apiJSONP('?action=checkAdminPermission&rg=' + encodeURIComponent(currentUserRG));
+        if (adminCheck.success && adminCheck.isAdmin) showAdminButton();
+        showVacanciesSection();
+      } catch (err) {
+        msg.innerHTML = `<span style="color:var(--danger)">Erro: ${err.message}</span>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Salvar nova senha';
+      }
+    }
+  </script>
+
+  <!-- MODAL TROCA DE SENHA -->
+  <div id="modalTrocaSenha" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px">
+    <div class="card" style="max-width:420px;width:100%;margin:0">
+      <h2 style="margin-top:0">🔐 Primeiro acesso</h2>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:16px">
+        Por segurança, defina uma nova senha antes de continuar.
+        A senha padrão (RG + "cbmgo") expira no primeiro uso.
+      </p>
+      <label style="display:block;margin-bottom:4px;font-weight:bold">Nova senha</label>
+      <input type="password" id="novaSenha" placeholder="Mínimo 8 caracteres" minlength="8" autocomplete="new-password">
+      <label style="display:block;margin-bottom:4px;font-weight:bold">Confirmar senha</label>
+      <input type="password" id="confSenha" placeholder="Repita a senha" minlength="8" autocomplete="new-password">
+      <div id="msgTrocaSenha" style="margin-top:8px;font-size:13px"></div>
+      <div class="button-group" style="margin-top:12px">
+        <button id="btnSalvarNovaSenha" class="btn-success" onclick="salvarNovaSenha()">Salvar nova senha</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
