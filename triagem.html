@@ -55,6 +55,7 @@
         <nav class="flex gap-1 overflow-x-auto" aria-label="Trocar aplicativo">
           <a href="./index.html" class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-950/60 text-red-100 hover:bg-red-950 whitespace-nowrap transition">📋 Relatório 193</a>
           <a href="./triagem.html" aria-current="page" class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white text-red-700 whitespace-nowrap shadow">🚑 Triagem</a>
+          <a href="./ac4.html" class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-950/60 text-red-100 hover:bg-red-950 whitespace-nowrap transition">📝 AC4</a>
         </nav>
         <button id="installBtnTriagem" type="button" class="px-2 py-1 rounded-md bg-red-950/60 hover:bg-red-950 text-[11px] font-bold whitespace-nowrap transition" title="Instalar aplicativo" hidden>📲 Instalar</button>
       </div>
@@ -179,19 +180,15 @@
                   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div>
                       <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">🏙️ Cidade</label>
-<input type="text" id="est-cidade" autocomplete="off"
-oninput="onInputCidadeEstruturada()" placeholder="Digite a cidade..."
-class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                      <input type="text" id="est-cidade" autocomplete="off" oninput="onInputCidadeEstruturada()" placeholder="Digite a cidade..." class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
                     </div>
                     <div>
                       <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">🏘️ Bairro</label>
-<input type="text" id="est-bairro" autocomplete="off"
-oninput="onInputBairroEstruturado()" placeholder="Digite o bairro..." disabled
-class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                      <input type="text" id="est-bairro" autocomplete="off" oninput="onInputBairroEstruturado()" placeholder="Digite o bairro..." disabled class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
                     </div>
                     <div>
                       <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">🛣️ Rua</label>
-<input type="text" id="est-rua" oninput="onInputRuaEstruturada()" placeholder="Digite a rua..." disabled class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                      <input type="text" id="est-rua" oninput="onInputRuaEstruturada()" placeholder="Digite a rua..." disabled class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
                     </div>
                     <div>
                       <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">#️⃣ Número</label>
@@ -225,11 +222,12 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
               <button type="button" onclick="pedirLocalizacaoWhatsApp()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg">📲 Pedir GPS no Zap</button>
               <button type="button" onclick="gerarLinkMapsPeloEndereco()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg">🗺️ Gerar Maps pelo Endereço</button>
             </div>
-<div class="flex gap-1 w-full">
-  <input type="url" id="solicitante-link-gps" oninput="atualizarRelatorio()" placeholder="Cole aqui o link GPS..." class="flex-1 min-w-0 border border-blue-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg p-1.5 text-xs outline-none">
-  <button type="button" onclick="copiarLocalizacao()" title="Copiar localização (link ou endereço)" class="text-[11px] bg-slate-600 hover:bg-slate-700 text-white font-bold px-2 py-1.5 rounded-lg shrink-0">📋</button>
-  <button type="button" onclick="abrirLocalizacaoNovaPagina()" title="Abrir localização em nova aba" class="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1.5 rounded-lg shrink-0">🔗</button>
-</div>          </div>
+            <div class="flex gap-1 w-full">
+              <input type="url" id="solicitante-link-gps" oninput="atualizarRelatorio()" placeholder="Cole aqui o link GPS..." class="flex-1 min-w-0 border border-blue-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg p-1.5 text-xs outline-none">
+              <button type="button" onclick="copiarLocalizacao()" title="Copiar localização (link ou endereço)" class="text-[11px] bg-slate-600 hover:bg-slate-700 text-white font-bold px-2 py-1.5 rounded-lg shrink-0">📋</button>
+              <button type="button" onclick="abrirLocalizacaoNovaPagina()" title="Abrir localização em nova aba" class="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1.5 rounded-lg shrink-0">🔗</button>
+            </div>
+          </div>
 
           <div class="pt-2 border-t dark:border-slate-700 space-y-2">
             <div class="flex flex-wrap items-center justify-between gap-2">
@@ -626,7 +624,6 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
     </section>
 
   </main>
-
   <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900 text-white p-2.5 border-t border-slate-700 flex justify-around items-center z-50 no-print shadow-2xl">
     <button onclick="copiarRelatorio()" class="flex items-center space-x-1 bg-emerald-600 px-3 py-2 rounded-lg text-xs font-bold"><span>📑 Copiar</span></button>
     <button onclick="enviarGrupoOperacoesConjuntas()" class="flex items-center space-x-1 bg-green-700 px-3 py-2 rounded-lg text-xs font-bold"><span>📢 Grupo Op.</span></button>
