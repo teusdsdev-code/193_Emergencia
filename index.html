@@ -203,7 +203,7 @@
 
 <div class="notice" style="max-width:1100px;margin:0 auto 16px;">
   <b>Orientações (Ofício Circular BM/6):</b> preencha <b>um relatório para cada incidente</b> ou período de instabilidade.
-  Recomenda-se registrar <b>ao menos 3 (três) testes</b> — preferencialmente com celulares de operadoras distintas,
+  <b>Obrigatório registrar ao menos 3 (três) testes</b> — preferencialmente com celulares de operadoras distintas,
   telefone fixo e aparelho VoIP da unidade. Os dados são gravados automaticamente neste navegador.
 </div>
 
@@ -344,9 +344,9 @@
   <section class="card">
     <h3>III. Testes para diagnóstico <span class="badge" id="testCount">0 teste(s)</span></h3>
     <p style="margin-top:0;color:var(--muted);font-size:.9rem;">
-      Recomenda-se registrar <b>ao menos 3 (três) chamadas</b>, preferencialmente com celulares de
-      <b>operadoras distintas</b>, telefone <b>fixo</b> e aparelho <b>VoIP interno</b> da unidade.
-      <b>Não é obrigatório</b> — o relatório pode ser gerado com a quantidade de testes que houver.
+      <b style="color:var(--danger);">Mínimo de 3 (três) testes obrigatórios.</b>
+      Preferencialmente com celulares de <b>operadoras distintas</b>, telefone <b>fixo</b> e aparelho <b>VoIP interno</b>.
+      Não será possível gerar o PDF nem imprimir sem os 3 testes completos.
     </p>
     <div id="testsContainer"></div>
     <button type="button" class="secondary" onclick="addTest()">+ Adicionar teste</button>
@@ -356,7 +356,7 @@
   <div class="actions">
     <button type="button" class="secondary" onclick="exportPDF()">Exportar PDF</button>
     <button type="button" class="ghost" onclick="downloadJSON()">Baixar JSON</button>
-    <button type="button" class="ghost" onclick="window.print()">Imprimir</button>
+    <button type="button" class="ghost" onclick="imprimirRelatorio()">Imprimir</button>
     <button type="button" class="danger" onclick="clearForm(true)">Limpar formulário</button>
     <span class="folder-hint" id="folderHint"></span>
   </div>
@@ -700,14 +700,14 @@ function renumberTests(){
 
   const warn = document.getElementById('testWarning');
   if (cards.length >= 3){
-    warn.textContent = `✅ Mínimo recomendado atingido (${cards.length} testes).`;
+    warn.textContent = `✅ Mínimo obrigatório atingido (${cards.length} testes).`;
     warn.className = 'status saved';
   } else if (cards.length === 0){
-    warn.textContent = 'Recomendado: ao menos 3 testes.';
-    warn.className = 'status';
+    warn.textContent = '⚠️ Obrigatório: mínimo 3 testes.';
+    warn.className = 'status error';
   } else {
-    warn.textContent = `Recomendado: ao menos 3 testes (${cards.length} registrado${cards.length === 1 ? '' : 's'}).`;
-    warn.className = 'status';
+    warn.textContent = `⚠️ Faltam ${3 - cards.length} teste(s) para atingir o mínimo obrigatório (3).`;
+    warn.className = 'status error';
   }
 }
 
@@ -754,8 +754,43 @@ function validateForm(){
     toast('Preencha todos os campos obrigatórios (*).', 'err');
     return false;
   }
+
+  const cards = document.querySelectorAll('#testsContainer .test-card');
+
+  if (cards.length < 3){
+    toast(`Mínimo obrigatório: 3 testes. Registrados: ${cards.length}.`, 'err', 5000);
+    document.getElementById('testsContainer')
+      .scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return false;
+  }
+
+  // Valida campo-a-campo de cada teste (o reportValidity não chega nos dinâmicos)
+  for (let i = 0; i < cards.length; i++){
+    const c = cards[i];
+    const faltando = [];
+    if (!c.querySelector('.testOriginType').value)                      faltando.push('tipo de origem');
+    if (!c.querySelector('.originNumber').value.trim())                 faltando.push('número de origem');
+    if (!c.querySelector('.originOperator').value)                      faltando.push('operadora');
+    if (!c.querySelector('.testDate').value)                            faltando.push('data/hora');
+    if (!c.querySelector('.testResult').value)                          faltando.push('resultado');
+
+    if (faltando.length){
+      toast(`Teste ${i + 1} incompleto — falta: ${faltando.join(', ')}.`, 'err', 5500);
+      c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      c.style.outline = '2px solid var(--danger)';
+      setTimeout(() => { c.style.outline = ''; }, 2500);
+      return false;
+    }
+  }
+
   return true;
 }
+
+function imprimirRelatorio(){
+  if (!validateForm()) return;
+  window.print();
+}
+
 function updateFolderHint(){
   const hint = document.getElementById('folderHint');
   if (!hint) return;
@@ -911,6 +946,7 @@ async function exportPDF(){
    JSON — export / import
    ========================================================= */
 async function downloadJSON(){
+  if (!validateForm()) return;
   const data = collectData();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const folder = monthFolderFromDate(data.identification.startDate);
@@ -1002,6 +1038,9 @@ function clearForm(confirmFirst){
   document.getElementById('reportForm').reset();
   document.getElementById('testsContainer').innerHTML = '';
   addTest();
+  addTest();
+  addTest();
+  clearTimeout(saveTimer);   // ← cancela o debounce pendente
   localStorage.removeItem(STORAGE_KEY);
   const s = document.getElementById('autosaveStatus');
   s.textContent = ''; s.className = 'status';
@@ -1031,7 +1070,11 @@ document.getElementById('reportForm').addEventListener('change', saveDraft);
 
   // ---- Formulário ----
   const restored = restoreDraft();
-  if (!restored) addTest();
+  if (!restored){
+  addTest();
+  addTest();
+  addTest();
+}
   renumberTests();
 
   const start = document.getElementById('startDate');

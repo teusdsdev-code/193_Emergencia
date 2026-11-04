@@ -119,10 +119,13 @@
             <button type="button" onclick="selecionarNaturezaRapida('SALVAMENTO')" id="btn-nat-SALVAMENTO" class="btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 col-span-2 sm:col-span-1">🛟 SALVAMENTO</button>
           </div>
 
-          <div class="relative mb-3">
-            <input type="text" id="input-busca-sintoma" onfocus="mostrarListaSugestoes()" oninput="filtrarSugestoesSintomas()" onkeydown="atalhoEnterSintoma(event)" placeholder="Digite o sintoma (ex: dor, resp, sangue...) e aperte Enter..." autocomplete="off" class="w-full border-2 border-red-400 dark:border-red-500 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-red-600 outline-none font-semibold">
-            <ul id="dropdown-sugestoes" class="hidden absolute z-30 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg shadow-xl divide-y dark:divide-slate-600 text-sm"></ul>
-          </div>
+<div class="relative mb-3">
+  <input type="text" id="input-busca-sintoma" onfocus="mostrarListaSugestoes()" oninput="filtrarSugestoesSintomas()" onkeydown="atalhoEnterSintoma(event)" placeholder="Digite o sintoma (ex: dor, resp, sangue...) e aperte Enter..." autocomplete="off" class="w-full border-2 border-red-400 dark:border-red-500 bg-white dark:bg-slate-700 rounded-lg p-2.5 pr-12 text-sm focus:ring-2 focus:ring-red-600 outline-none font-semibold">
+  <button type="button" onclick="ditarSintomaPorVoz(this)" title="Falar sintoma" class="absolute right-1.5 top-1/2 -translate-y-1/2 bg-red-600 hover:bg-red-700 text-white w-9 h-9 rounded-lg flex items-center justify-center shadow">
+    <span class="text-sm">🎤</span>
+  </button>
+  <ul id="dropdown-sugestoes" class="hidden absolute z-30 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg shadow-xl divide-y dark:divide-slate-600 text-sm"></ul>
+</div>
 
           <div>
             <span class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">Sintomas Confirmados na Ligação:</span>
@@ -132,10 +135,24 @@
           </div>
         </div>
 
+        <!-- PASSO 1.5: PERGUNTAS DE TRIAGEM -->
+<div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-xl shadow-sm border-2 border-purple-400/40 dark:border-purple-500/30">
+  <div class="flex flex-wrap justify-between items-center border-b dark:border-slate-700 pb-2 mb-3 gap-2">
+    <div>
+      <h2 class="text-sm md:text-base font-black text-purple-600 dark:text-purple-400 uppercase">🔍 2. Perguntas de Triagem</h2>
+      <p class="text-[11px] text-slate-400">Baseadas nos sintomas marcados. Responda para derivar novos sintomas automaticamente.</p>
+    </div>
+    <span id="badge-perguntas-pendentes" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 hidden"></span>
+  </div>
+  <div id="painel-perguntas-triagem" class="space-y-2">
+    <p class="text-sm text-slate-400 italic">Adicione sintomas no Passo 1 para ver as perguntas de triagem...</p>
+  </div>
+</div>
+
         <!-- PASSO 2: ENDEREÇO & VÍTIMA -->
         <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
           <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2">
-            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">2. Endereço & Vítima (Ditado por Voz 🎤)</h2>
+            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">3. Endereço & Vítima (Ditado por Voz 🎤)</h2>
             <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">Toque em 🎤 para falar o endereço</span>
           </div>
 
@@ -208,8 +225,11 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
               <button type="button" onclick="pedirLocalizacaoWhatsApp()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg">📲 Pedir GPS no Zap</button>
               <button type="button" onclick="gerarLinkMapsPeloEndereco()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg">🗺️ Gerar Maps pelo Endereço</button>
             </div>
-            <input type="url" id="solicitante-link-gps" oninput="atualizarRelatorio()" placeholder="Cole aqui o link GPS..." class="w-full border border-blue-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg p-1.5 text-xs outline-none">
-          </div>
+<div class="flex gap-1 w-full">
+  <input type="url" id="solicitante-link-gps" oninput="atualizarRelatorio()" placeholder="Cole aqui o link GPS..." class="flex-1 min-w-0 border border-blue-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg p-1.5 text-xs outline-none">
+  <button type="button" onclick="copiarLocalizacao()" title="Copiar localização (link ou endereço)" class="text-[11px] bg-slate-600 hover:bg-slate-700 text-white font-bold px-2 py-1.5 rounded-lg shrink-0">📋</button>
+  <button type="button" onclick="abrirLocalizacaoNovaPagina()" title="Abrir localização em nova aba" class="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1.5 rounded-lg shrink-0">🔗</button>
+</div>          </div>
 
           <div class="pt-2 border-t dark:border-slate-700 space-y-2">
             <div class="flex flex-wrap items-center justify-between gap-2">
@@ -247,7 +267,7 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
         <!-- PASSO 3: HIPÓTESES -->
         <div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
           <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-3">
-            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">3. Hipóteses Diagnósticas & Script de Telefone</h2>
+            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">4. Hipóteses Diagnósticas & Script de Telefone</h2>
             <span class="text-[10px] bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded font-semibold">🔒 Dicas para ler ao solicitante</span>
           </div>
           <div id="resultados-diagnosticos" class="space-y-3">
@@ -258,7 +278,7 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
         <!-- PASSO 4: VIATURAS -->
         <div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
           <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-3">
-            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">4. Empenhar Viaturas & Guarnição</h2>
+            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">5. Empenhar Viaturas & Guarnição</h2>
             <button onclick="alternarAba('viaturas')" class="text-xs text-red-600 dark:text-red-400 font-bold hover:underline">⚙️ Escalar Militares</button>
           </div>
           <div id="selecao-viaturas-triagem" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs"></div>
@@ -405,7 +425,8 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Nome do Sintoma ou Situação</label>
-            <input type="text" id="cad-sintoma-nome" required placeholder="Ex: Vítima inconsciente..." class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <input type="text" id="cad-sintoma-nome" required placeholder="Ex: Vítima inconsciente..." list="datalist-sintomas-existentes" autocomplete="off" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <datalist id="datalist-sintomas-existentes"></datalist>
           </div>
           <label class="flex items-center space-x-2.5 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 cursor-pointer">
             <input type="checkbox" id="cad-sintoma-redflag" class="w-4 h-4 text-red-600 rounded">
@@ -432,7 +453,8 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div class="sm:col-span-2">
                 <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Título do Diagnóstico</label>
-                <input type="text" id="cad-diag-titulo" required placeholder="Ex: Parada Cardiorrespiratória" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+                <input type="text" id="cad-diag-titulo" required placeholder="Ex: Parada Cardiorrespiratória" list="datalist-diagnosticos-existentes" autocomplete="off" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+                <datalist id="datalist-diagnosticos-existentes"></datalist>
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Criticidade</label>
@@ -470,10 +492,71 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
         </div>
       </div>
 
+<!-- 🟣 PERGUNTAS DE TRIAGEM ADMIN -->
+<div class="md:col-span-12 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+  <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
+    <h2 class="text-base font-bold">🟣 3. Gerenciar Perguntas de Triagem</h2>
+    <span class="text-xs text-slate-400">Sincronizado com Supabase</span>
+  </div>
+
+  <!-- Aba: cadastrar pergunta -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div>
+      <div class="flex justify-between items-center mb-3">
+        <h3 id="titulo-form-pergunta" class="text-sm font-bold">➕ Nova Pergunta</h3>
+        <button type="button" id="btn-cancelar-pergunta" onclick="cancelarEdicaoPergunta()" class="hidden text-xs text-red-500 hover:underline font-bold">Cancelar</button>
+      </div>
+      <form id="form-pergunta" onsubmit="salvarPergunta(event)" class="space-y-3">
+        <input type="hidden" id="edit-pergunta-id" value="">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Texto da Pergunta</label>
+          <input type="text" id="cad-pergunta-texto" required placeholder="Ex: A vítima está respirando?" list="datalist-perguntas-existentes" autocomplete="off" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+          <datalist id="datalist-perguntas-existentes"></datalist>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Dica para o Operador</label>
+          <input type="text" id="cad-pergunta-dica" placeholder="Ex: Observe o abdômen, aproxime o rosto, ouça" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+        </div>
+        <label class="flex items-center space-x-2.5 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 cursor-pointer">
+          <input type="checkbox" id="cad-pergunta-redflag" class="w-4 h-4 text-red-600 rounded">
+          <span class="text-xs font-black uppercase text-red-700 dark:text-red-300">🚨 Red Flag (prioritária)</span>
+        </label>
+        <button type="submit" id="btn-submit-pergunta" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-2.5 rounded-lg text-sm">Gravar Pergunta no Supabase</button>
+      </form>
+    </div>
+
+    <div>
+      <h3 class="text-sm font-bold mb-3">🔗 Vincular Pergunta a Sintoma</h3>
+      <form onsubmit="vincularPerguntaSintoma(event)" class="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Sintoma</label>
+          <select id="vinc-sintoma" required class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Pergunta</label>
+          <select id="vinc-pergunta" required class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Prioridade (menor = primeiro)</label>
+          <input type="number" id="vinc-prioridade" value="0" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+        </div>
+        <button type="submit" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 rounded-lg text-sm">+ Vincular</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Lista de perguntas cadastradas -->
+  <div class="border-t dark:border-slate-700 pt-4 mt-4">
+    <h3 class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Perguntas no Banco (<span id="count-perguntas">0</span>)</h3>
+    <div id="lista-admin-perguntas" class="max-h-96 overflow-y-auto border dark:border-slate-700 rounded-lg p-2 text-xs space-y-2"></div>
+  </div>
+</div>
+
+
       <!-- 🏙️ LOCALIDADES ADMIN -->
       <div class="md:col-span-12 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
         <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
-          <h2 class="text-base font-bold">🏙️ 3. Gerenciar Localidades (Cidade → Bairro → Rua)</h2>
+          <h2 class="text-base font-bold">🏙️ 4. Gerenciar Localidades (Cidade → Bairro → Rua)</h2>
           <span class="text-xs text-slate-400">Sincronizado com Supabase</span>
         </div>
 
@@ -485,7 +568,8 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
 
         <div id="loc-panel-cidades">
           <form onsubmit="salvarCidade(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
-            <input type="text" id="cad-cidade-nome" required placeholder="Nome da cidade" class="sm:col-span-2 border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <input type="text" id="cad-cidade-nome" required placeholder="Nome da cidade" list="datalist-cad-cidades-nomes" autocomplete="off" class="sm:col-span-2 border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <datalist id="datalist-cad-cidades-nomes"></datalist>
             <input type="text" id="cad-cidade-uf" required maxlength="2" placeholder="UF" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm uppercase">
             <button type="submit" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg text-sm">+ Adicionar</button>
           </form>
@@ -494,8 +578,8 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
 
         <div id="loc-panel-bairros" class="hidden">
           <form onsubmit="salvarBairro(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
-<input type="text" id="cad-bairro-cidade" autocomplete="off" required placeholder="Digite a cidade..." class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
-            <input type="text" id="cad-bairro-nome" required placeholder="Nome do bairro" class="sm:col-span-2 border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <input type="text" id="cad-bairro-cidade" autocomplete="off" required placeholder="Digite a cidade..." oninput="popularDatalistsCadastros()" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">            <input type="text" id="cad-bairro-nome" required placeholder="Nome do bairro" list="datalist-cad-bairros-nomes" autocomplete="off" class="sm:col-span-2 border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <datalist id="datalist-cad-bairros-nomes"></datalist>
             <button type="submit" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg text-sm">+ Adicionar</button>
           </form>
           <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 p-3 rounded-lg mb-3">
@@ -515,21 +599,20 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
         </div>
 
         <div id="loc-panel-ruas" class="hidden">
-<form onsubmit="salvarRua(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
-<input type="text" id="cad-rua-cidade" autocomplete="off" required
-  oninput="renderizarAdminRuas()" placeholder="Digite a cidade..."
-  class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+          <form onsubmit="salvarRua(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+            <input type="text" id="cad-rua-cidade" autocomplete="off" required
+            oninput="renderizarAdminRuas()" placeholder="Digite a cidade..."
+            class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
 
-<input type="text" id="cad-rua-bairro" autocomplete="off" required
-  oninput="renderizarAdminRuas()" placeholder="Digite o bairro..."
-  class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
-  <datalist id="datalist-cad-bairros"></datalist>
+            <input type="text" id="cad-rua-bairro" autocomplete="off" required
+            oninput="renderizarAdminRuas()" placeholder="Digite o bairro..."
+            class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
 
-  <input type="text" id="cad-rua-nome" required placeholder="Nome da rua"
-    class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
-
-  <button type="submit" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg text-sm">+ Adicionar</button>
-</form>
+            <input type="text" id="cad-rua-nome" required placeholder="Nome da rua" list="datalist-cad-ruas-nomes" autocomplete="off" 
+            class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <datalist id="datalist-cad-ruas-nomes"></datalist>
+            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg text-sm">+ Adicionar</button>
+          </form>
           <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 p-3 rounded-lg mb-3">
             <label class="block text-xs font-bold uppercase text-emerald-900 dark:text-emerald-300 mb-1">
               📥 Importar em massa (1 rua por linha ou separadas por <code>;</code>)
@@ -577,6 +660,11 @@ class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-
     let bancoBairrosLocalidades = [];
     let cacheRuas = {};
     let usoBairrosLocais = JSON.parse(localStorage.getItem('cobom_bairros_uso') || '{}');
+    // Perguntas de triagem
+    let bancoPerguntas = [];
+    let bancoSintomaPerguntas = [];
+    let bancoPerguntaRespostas = [];
+    let perguntasFeitas = {};   // { perguntaId: true }
 
     // =========================================================================
     // 2. UTILITÁRIOS
@@ -750,6 +838,8 @@ function normalizarTexto(s) {
 
       await sincronizarComSupabase(false);
       await sincronizarLocalidades();
+      await sincronizarPerguntas();
+      cancelarEdicaoPergunta();
       atualizarRelatorio();
 
       document.addEventListener('click', (e) => {
@@ -850,6 +940,7 @@ function normalizarTexto(s) {
         viaturasEmpenhadasIds = viaturasEmpenhadasIds.filter(id => bancoViaturas.some(v => v.id === id));
 
         renderizarTudo();
+        await sincronizarPerguntas();
         if (mostrarAlerta) mostrarToast(`Sincronizado! ${bancoSintomas.length} sintomas, ${bancoDiagnosticos.length} diagnósticos, ${bancoViaturas.length} viaturas.`, 'sucesso');
       } catch (err) {
         console.error(err);
@@ -868,6 +959,7 @@ function normalizarTexto(s) {
       const infoCache = document.getElementById('info-cache');
       if (infoCache) infoCache.innerText = motivo || 'Cache local';
       renderizarTudo();
+      sincronizarPerguntas();   // ← ADICIONAR (cai no cache próprio dela em caso de falha)
     }
 
     function renderizarTudo() {
@@ -1005,6 +1097,7 @@ function filtrarSugestoesSintomas() {
       filtrarSugestoesSintomas();
       renderizarTagsSintomas();
       processarTriagem();
+      renderizarPerguntasTriagem();
     }
 
     function removerSintomaTag(id) {
@@ -1013,6 +1106,7 @@ function filtrarSugestoesSintomas() {
       filtrarSugestoesSintomas();
       processarTriagem();
       if (sintomasSelecionadosIds.length === 0) pararTimer();
+      renderizarPerguntasTriagem();
     }
 
     function renderizarTagsSintomas() {
@@ -1143,6 +1237,102 @@ function filtrarSugestoesSintomas() {
 
       atualizarRelatorio(objetosSintomas, diagnosticosEncontrados);
     }
+
+    // ---------- AUTOCOMPLETE DE CADASTROS (evitar duplicata) ----------
+function popularDatalistsCadastros() {
+  // Sintomas
+  const dlSint = document.getElementById('datalist-sintomas-existentes');
+  if (dlSint) {
+    dlSint.innerHTML = bancoSintomas.map(s =>
+      `<option value="${s.nome}">${s.red_flag ? '🚨 ' : ''}[${s.categoria}]</option>`
+    ).join('');
+  }
+
+  // Diagnósticos
+  const dlDiag = document.getElementById('datalist-diagnosticos-existentes');
+  if (dlDiag) {
+    dlDiag.innerHTML = bancoDiagnosticos.map(d =>
+      `<option value="${d.titulo}">[${d.criticidade}]</option>`
+    ).join('');
+  }
+
+  // Perguntas
+  const dlPerg = document.getElementById('datalist-perguntas-existentes');
+  if (dlPerg) {
+    dlPerg.innerHTML = bancoPerguntas.map(p =>
+      `<option value="${p.texto}">${p.red_flag ? '🚨 Red Flag' : ''}</option>`
+    ).join('');
+  }
+
+  // Cidades
+  const dlCid = document.getElementById('datalist-cad-cidades-nomes');
+  if (dlCid) {
+    dlCid.innerHTML = bancoCidades.map(c =>
+      `<option value="${c.nome}">${c.uf}</option>`
+    ).join('');
+  }
+
+  // Bairros — filtrados pela cidade selecionada no form (se houver)
+  const dlBai = document.getElementById('datalist-cad-bairros-nomes');
+  if (dlBai) {
+    const cidade = resolverCidadePorNome(document.getElementById('cad-bairro-cidade')?.value);
+    const bairros = cidade
+      ? bancoBairrosLocalidades.filter(b => b.cidade_id === cidade.id)
+      : bancoBairrosLocalidades;
+    dlBai.innerHTML = bairros.map(b =>
+      `<option value="${b.nome}"></option>`
+    ).join('');
+  }
+
+  // Ruas — filtradas pelo bairro selecionado (se houver)
+  const dlRua = document.getElementById('datalist-cad-ruas-nomes');
+  if (dlRua) {
+    const cidade = resolverCidadePorNome(document.getElementById('cad-rua-cidade')?.value);
+    const bairro = cidade ? resolverBairroPorNome(document.getElementById('cad-rua-bairro')?.value, cidade.id) : null;
+    if (bairro && cacheRuas[bairro.id]) {
+      dlRua.innerHTML = cacheRuas[bairro.id].map(r =>
+        `<option value="${r.nome}"></option>`
+      ).join('');
+    } else {
+      dlRua.innerHTML = '';
+    }
+  }
+}
+
+// ---------- VALIDADORES DE DUPLICATA (usa normalizarTexto) ----------
+function verificarSintomaDuplicado(nome) {
+  const alvo = normalizarTexto(nome);
+  return bancoSintomas.find(s => normalizarTexto(s.nome) === alvo);
+}
+
+function verificarDiagnosticoDuplicado(titulo) {
+  const alvo = normalizarTexto(titulo);
+  return bancoDiagnosticos.find(d => normalizarTexto(d.titulo) === alvo);
+}
+
+function verificarPerguntaDuplicada(texto) {
+  const alvo = normalizarTexto(texto);
+  return bancoPerguntas.find(p => normalizarTexto(p.texto) === alvo);
+}
+
+function verificarCidadeDuplicada(nome, uf) {
+  const alvo = normalizarTexto(nome);
+  const ufUp = (uf || '').toUpperCase();
+  return bancoCidades.find(c => normalizarTexto(c.nome) === alvo && c.uf === ufUp);
+}
+
+function verificarBairroDuplicado(nome, cidadeId) {
+  const alvo = normalizarTexto(nome);
+  return bancoBairrosLocalidades.find(b =>
+    b.cidade_id === cidadeId && normalizarTexto(b.nome) === alvo
+  );
+}
+
+function verificarRuaDuplicada(nome, bairroId) {
+  const alvo = normalizarTexto(nome);
+  const ruas = cacheRuas[bairroId] || [];
+  return ruas.find(r => normalizarTexto(r.nome) === alvo);
+}
 
     // =========================================================================
     // 8. VIATURAS E GUARNIÇÃO
@@ -1515,6 +1705,8 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
       selecionarNaturezaRapida('TODAS');
       renderizarSelecaoViaturasTriagem();
       processarTriagem();
+      perguntasFeitas = {};
+      renderizarPerguntasTriagem();
       mostrarToast('Chamado limpo. Pronto para nova ocorrência.', 'info');
     }
 
@@ -1562,6 +1754,7 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
           </div>
         </li>
       `).join('');
+      popularDatalistsCadastros();
     }
 
     function iniciarEdicaoSintoma(id) {
@@ -1591,6 +1784,10 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
       const categoria = document.getElementById('cad-sintoma-cat').value;
       const nome = document.getElementById('cad-sintoma-nome').value.trim();
       const red_flag = document.getElementById('cad-sintoma-redflag').checked;
+      const dup = verificarSintomaDuplicado(nome);
+      if (dup && dup.id !== idEdicao) {
+        if (!confirm(`Já existe um sintoma parecido:\n\n"${dup.nome}" em [${dup.categoria}]${dup.red_flag ? ' 🚨' : ''}\n\nCadastrar mesmo assim?`)) return;
+      }
 
       const { error } = idEdicao
         ? await supabaseClient.from('sintomas').update({ categoria, nome, red_flag }).eq('id', idEdicao)
@@ -1644,6 +1841,11 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
       const dicas_solicitante = document.getElementById('cad-diag-dicas').value.trim();
       const sintomas_ids = Array.from(document.querySelectorAll('input[name="sintoma-check"]:checked')).map(c => c.value);
 
+      const dup = verificarDiagnosticoDuplicado(titulo);
+      if (dup && dup.id !== idEdicao) {
+        if (!confirm(`Já existe um diagnóstico com esse título:\n\n"${dup.titulo}" [${dup.criticidade}]\n\nCadastrar mesmo assim?`)) return;
+      }
+
       if (sintomas_ids.length === 0) return mostrarToast('Selecione ao menos 1 sintoma!', 'erro');
 
       let diagId = idEdicao;
@@ -1684,13 +1886,363 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
           btn.className = "flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap";
         }
       });
-if (aba === 'cadastros') {
-  aplicarCidadePadraoAdmin();
-  renderizarAdminCidades();
-  renderizarAdminBairros();
-  renderizarAdminRuas();
-}
+      if (aba === 'cadastros') {
+        aplicarCidadePadraoAdmin();
+        renderizarAdminCidades();
+        renderizarAdminBairros();
+        renderizarAdminRuas();
+        renderizarAdminPerguntas();
+        renderizarSelectsPerguntas();
+      }
     }
+
+// =========================================================================
+// 10.B PERGUNTAS DE TRIAGEM (Sintoma → Pergunta → Resposta → Novo Sintoma)
+// =========================================================================
+
+// ---------- SYNC ----------
+async function sincronizarPerguntas() {
+  try {
+    const [resPerg, resSintPerg] = await Promise.all([
+      comTimeout(supabaseClient.from('perguntas').select('*').order('created_at')),
+      comTimeout(supabaseClient.from('sintoma_perguntas').select('*'))
+    ]);
+    if (resPerg.error) throw resPerg.error;
+    if (resSintPerg.error) throw resSintPerg.error;
+
+    bancoPerguntas = resPerg.data || [];
+    bancoSintomaPerguntas = resSintPerg.data || [];
+    bancoPerguntaRespostas = [];   // mantido como array vazio por compatibilidade
+
+    localStorage.setItem('cobom_cache_perguntas', JSON.stringify(bancoPerguntas));
+    localStorage.setItem('cobom_cache_sintoma_perguntas', JSON.stringify(bancoSintomaPerguntas));
+    localStorage.removeItem('cobom_cache_pergunta_respostas');
+  } catch (err) {
+    console.warn('Perguntas: usando cache local.', err);
+    bancoPerguntas = JSON.parse(localStorage.getItem('cobom_cache_perguntas') || '[]');
+    bancoSintomaPerguntas = JSON.parse(localStorage.getItem('cobom_cache_sintoma_perguntas') || '[]');
+    bancoPerguntaRespostas = [];
+  }
+  renderizarPerguntasTriagem();
+  renderizarAdminPerguntas();
+  renderizarSelectsPerguntas();
+}
+
+// ---------- RENDER DO PAINEL NA TRIAGEM ----------
+
+function renderizarPerguntasTriagem() {
+  const painel = document.getElementById('painel-perguntas-triagem');
+  const badge = document.getElementById('badge-perguntas-pendentes');
+  if (!painel) return;
+
+  if (sintomasSelecionadosIds.length === 0) {
+    painel.innerHTML = '<p class="text-sm text-slate-400 italic">Adicione sintomas no Passo 1 para ver as sugestões de perguntas...</p>';
+    if (badge) badge.classList.add('hidden');
+    return;
+  }
+
+  const perguntasIds = [...new Set(
+    bancoSintomaPerguntas
+      .filter(sp => sintomasSelecionadosIds.includes(sp.sintoma_id))
+      .map(sp => sp.pergunta_id)
+  )];
+
+  if (perguntasIds.length === 0) {
+    painel.innerHTML = '<p class="text-xs text-slate-400 italic">Nenhuma sugestão de pergunta para os sintomas atuais.</p>';
+    if (badge) badge.classList.add('hidden');
+    return;
+  }
+
+  const prioridadePorPergunta = {};
+  bancoSintomaPerguntas
+    .filter(sp => sintomasSelecionadosIds.includes(sp.sintoma_id))
+    .forEach(sp => {
+      if (prioridadePorPergunta[sp.pergunta_id] === undefined || sp.prioridade < prioridadePorPergunta[sp.pergunta_id]) {
+        prioridadePorPergunta[sp.pergunta_id] = sp.prioridade;
+      }
+    });
+
+  const perguntasOrdenadas = perguntasIds
+    .map(id => bancoPerguntas.find(p => p.id === id))
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.red_flag !== b.red_flag) return a.red_flag ? -1 : 1;
+      return (prioridadePorPergunta[a.id] ?? 999) - (prioridadePorPergunta[b.id] ?? 999);
+    });
+
+  const pendentes = perguntasOrdenadas.filter(p => !perguntasFeitas[p.id]).length;
+  if (badge) {
+    if (pendentes > 0) {
+      badge.classList.remove('hidden');
+      badge.textContent = `${pendentes} a perguntar`;
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  painel.innerHTML = perguntasOrdenadas.map(p => {
+    const feita = !!perguntasFeitas[p.id];
+    const cor = p.red_flag ? 'border-red-500 bg-red-50/40 dark:bg-red-950/30' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/40';
+    const icone = p.red_flag ? '🚨 ' : '';
+    const tagRf = p.red_flag ? '<span class="bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded ml-1">RED FLAG</span>' : '';
+    const estiloTexto = feita ? 'line-through opacity-50' : '';
+
+    return `
+      <div class="border-l-4 ${cor} p-3 rounded-lg border dark:border-slate-700">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex-1 min-w-0">
+            <h3 class="font-bold text-sm ${estiloTexto}">${icone}${p.texto}${tagRf}</h3>
+            ${p.dica_operador ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 ${estiloTexto}">💡 ${p.dica_operador}</p>` : ''}
+          </div>
+          <button type="button" onclick="togglePerguntaFeita('${p.id}')"
+            class="text-[11px] font-bold px-2.5 py-1 rounded shrink-0 transition ${feita ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-emerald-100'}">
+            ${feita ? '✓ Feita' : 'Marcar feita'}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function togglePerguntaFeita(perguntaId) {
+  if (perguntasFeitas[perguntaId]) {
+    delete perguntasFeitas[perguntaId];
+  } else {
+    perguntasFeitas[perguntaId] = true;
+  }
+  renderizarPerguntasTriagem();
+}
+
+// ---------- RESPONDER (deriva sintoma) ----------
+function responderPergunta(perguntaId, respostaId) {
+  const resp = bancoPerguntaRespostas.find(r => r.id === respostaId);
+  if (!resp) return;
+
+  const anterior = respostasPerguntasAtuais[perguntaId];
+  respostasPerguntasAtuais[perguntaId] = respostaId;
+
+  // Remove sintoma derivado anterior (se houver)
+  if (anterior) {
+    const respAnterior = bancoPerguntaRespostas.find(r => r.id === anterior);
+    if (respAnterior?.sintoma_derivado_id) {
+      const idx = sintomasSelecionadosIds.indexOf(respAnterior.sintoma_derivado_id);
+      // Só remove se esse sintoma não estiver sendo derivado por outra resposta ativa
+      if (idx >= 0) {
+        const derivadoPorOutra = Object.entries(respostasPerguntasAtuais)
+          .some(([pid, rid]) => pid !== perguntaId && rid === anterior);
+        if (!derivadoPorOutra) sintomasSelecionadosIds.splice(idx, 1);
+      }
+    }
+  }
+
+  // Adiciona sintoma derivado novo
+  if (resp.sintoma_derivado_id && !sintomasSelecionadosIds.includes(resp.sintoma_derivado_id)) {
+    sintomasSelecionadosIds.push(resp.sintoma_derivado_id);
+    const sint = bancoSintomas.find(s => s.id === resp.sintoma_derivado_id);
+    if (sint) mostrarToast(`➕ Sintoma derivado: ${sint.nome}`, 'sucesso');
+  }
+
+  renderizarTagsSintomas();
+  renderizarPerguntasTriagem();
+  processarTriagem();
+}
+
+function limparRespostaPergunta(perguntaId) {
+  const anterior = respostasPerguntasAtuais[perguntaId];
+  if (anterior) {
+    const respAnterior = bancoPerguntaRespostas.find(r => r.id === anterior);
+    if (respAnterior?.sintoma_derivado_id) {
+      const idx = sintomasSelecionadosIds.indexOf(respAnterior.sintoma_derivado_id);
+      if (idx >= 0) sintomasSelecionadosIds.splice(idx, 1);
+    }
+  }
+  delete respostasPerguntasAtuais[perguntaId];
+  renderizarTagsSintomas();
+  renderizarPerguntasTriagem();
+  processarTriagem();
+}
+
+// ---------- VOZ NA BUSCA DE SINTOMAS ----------
+function ditarSintomaPorVoz(btnElement) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return mostrarToast('Navegador não suporta reconhecimento de voz.', 'erro');
+
+  const rec = new SpeechRecognition();
+  rec.lang = 'pt-BR';
+  rec.interimResults = false;
+
+  const original = btnElement.innerHTML;
+  btnElement.innerHTML = '⏺';
+  btnElement.classList.add('animate-pulse');
+
+  rec.onresult = (e) => {
+    const texto = e.results[0][0].transcript;
+    const input = document.getElementById('input-busca-sintoma');
+    input.value = texto;
+    input.focus();
+    filtrarSugestoesSintomas();
+    document.getElementById('dropdown-sugestoes').classList.remove('hidden');
+  };
+  rec.onend = () => { btnElement.innerHTML = original; btnElement.classList.remove('animate-pulse'); };
+  rec.onerror = () => { btnElement.innerHTML = original; btnElement.classList.remove('animate-pulse'); mostrarToast('Não entendi. Tente novamente.', 'erro'); };
+  rec.start();
+}
+
+// ---------- ADMIN: LISTA E FORM ----------
+function renderizarAdminPerguntas() {
+  const el = document.getElementById('lista-admin-perguntas');
+  if (!el) return;
+  const count = document.getElementById('count-perguntas');
+  if (count) count.textContent = bancoPerguntas.length;
+
+  if (bancoPerguntas.length === 0) {
+    el.innerHTML = '<p class="text-slate-400 italic p-2">Nenhuma pergunta cadastrada.</p>';
+    return;
+  }
+
+  el.innerHTML = bancoPerguntas.map(p => {
+    const vinculos = bancoSintomaPerguntas.filter(sp => sp.pergunta_id === p.id);
+    const sintomasVinculados = vinculos.map(v => bancoSintomas.find(s => s.id === v.sintoma_id)?.nome).filter(Boolean);
+    return `
+      <div class="bg-slate-50 dark:bg-slate-900/50 border dark:border-slate-700 rounded p-2.5 space-y-1">
+        <div class="flex justify-between items-start gap-2">
+          <div class="flex-1">
+            <strong class="text-xs">${p.red_flag ? '🚨 ' : ''}${p.texto}</strong>
+            ${p.dica_operador ? `<div class="text-[10px] text-slate-500 mt-0.5">💡 ${p.dica_operador}</div>` : ''}
+          </div>
+          <div class="flex space-x-1 shrink-0">
+            <button onclick="iniciarEdicaoPergunta('${p.id}')" class="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded font-bold text-[10px]">✏️</button>
+            <button onclick="excluirPergunta('${p.id}')" class="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-1 rounded font-bold text-[10px]">🗑️</button>
+          </div>
+        </div>
+        <div class="text-[10px] text-slate-500">
+          <strong>Sintomas vinculados:</strong> ${sintomasVinculados.join(', ') || '<em>nenhum</em>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+  popularDatalistsCadastros();
+}
+
+function adicionarLinhaResposta(valores = null) {
+  const container = document.getElementById('lista-respostas-form');
+  if (!container) return;
+  const id = 'resp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+
+  const div = document.createElement('div');
+  div.className = 'flex flex-wrap gap-1 items-center bg-white dark:bg-slate-800 p-1.5 rounded border dark:border-slate-700';
+  div.dataset.respostaId = id;
+
+  const optionsSintomas = bancoSintomas.map(s =>
+    `<option value="${s.id}">${s.red_flag ? '🚨 ' : ''}[${s.categoria}] ${s.nome}</option>`
+  ).join('');
+
+  div.innerHTML = `
+    <input type="text" class="resp-texto flex-1 min-w-[100px] border dark:border-slate-600 bg-white dark:bg-slate-700 rounded px-2 py-1 text-xs" placeholder="Ex: Sim" value="${valores?.resposta_texto || ''}" required>
+    <select class="resp-sintoma border dark:border-slate-600 bg-white dark:bg-slate-700 rounded px-1 py-1 text-xs">
+      <option value="">Sem derivação</option>
+      ${optionsSintomas}
+    </select>
+    <button type="button" onclick="this.closest('[data-resposta-id]').remove()" class="text-red-500 font-black px-1">✕</button>
+  `;
+  container.appendChild(div);
+
+  if (valores?.sintoma_derivado_id) {
+    const sel = div.querySelector('.resp-sintoma');
+    if (sel) sel.value = valores.sintoma_derivado_id;
+  }
+}
+
+async function salvarPergunta(e) {
+  e.preventDefault();
+  const idEdicao = document.getElementById('edit-pergunta-id').value;
+  const texto = document.getElementById('cad-pergunta-texto').value.trim();
+  const dica = document.getElementById('cad-pergunta-dica').value.trim();
+  const red_flag = document.getElementById('cad-pergunta-redflag').checked;
+
+  const dup = verificarPerguntaDuplicada(texto);
+  if (dup && dup.id !== idEdicao) {
+    if (!confirm(`Já existe uma pergunta parecida:\n\n"${dup.texto}"${dup.red_flag ? ' 🚨' : ''}\n\nCadastrar mesmo assim?`)) return;
+  }
+
+  if (!texto) return mostrarToast('Preencha o texto da pergunta.', 'erro');
+
+  const { error } = idEdicao
+    ? await supabaseClient.from('perguntas').update({ texto, dica_operador: dica, red_flag }).eq('id', idEdicao)
+    : await supabaseClient.from('perguntas').insert([{ texto, dica_operador: dica, red_flag }]);
+
+  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+  cancelarEdicaoPergunta();
+  mostrarToast(idEdicao ? 'Pergunta atualizada.' : 'Pergunta gravada.', 'sucesso');
+  await sincronizarPerguntas();
+}
+
+function iniciarEdicaoPergunta(id) {
+  const p = bancoPerguntas.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('edit-pergunta-id').value = p.id;
+  document.getElementById('cad-pergunta-texto').value = p.texto;
+  document.getElementById('cad-pergunta-dica').value = p.dica_operador || '';
+  document.getElementById('cad-pergunta-redflag').checked = !!p.red_flag;
+  document.getElementById('titulo-form-pergunta').innerText = '✏️ Editando Pergunta';
+  document.getElementById('btn-submit-pergunta').innerText = 'Atualizar Pergunta';
+  document.getElementById('btn-cancelar-pergunta').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelarEdicaoPergunta() {
+  document.getElementById('form-pergunta').reset();
+  document.getElementById('edit-pergunta-id').value = '';
+  document.getElementById('titulo-form-pergunta').innerText = '➕ Nova Pergunta';
+  document.getElementById('btn-submit-pergunta').innerText = 'Gravar Pergunta no Supabase';
+  document.getElementById('btn-cancelar-pergunta').classList.add('hidden');
+}
+
+function popularSelectsRespostaPergunta() {
+  const opts = '<option value="">— Nenhum —</option>' +
+    bancoSintomas.map(s =>
+      `<option value="${s.id}">${s.red_flag ? '🚨 ' : ''}[${s.categoria}] ${s.nome}</option>`
+    ).join('');
+  ['resp-sintoma-sim', 'resp-sintoma-nao', 'resp-sintoma-naosei'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts;
+  });
+}
+
+async function excluirPergunta(id) {
+  if (!confirm('Excluir esta pergunta? Os vínculos com sintomas e respostas serão removidos.')) return;
+  const { error } = await supabaseClient.from('perguntas').delete().eq('id', id);
+  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+  mostrarToast('Pergunta excluída.', 'sucesso');
+  await sincronizarPerguntas();
+}
+
+// ---------- VÍNCULO PERGUNTA ↔ SINTOMA ----------
+function renderizarSelectsPerguntas() {
+  const selSint = document.getElementById('vinc-sintoma');
+  const selPerg = document.getElementById('vinc-pergunta');
+  if (selSint) {
+    selSint.innerHTML = '<option value="">Selecione...</option>' +
+      bancoSintomas.map(s => `<option value="${s.id}">${s.red_flag ? '🚨 ' : ''}[${s.categoria}] ${s.nome}</option>`).join('');
+  }
+  if (selPerg) {
+    selPerg.innerHTML = '<option value="">Selecione...</option>' +
+      bancoPerguntas.map(p => `<option value="${p.id}">${p.red_flag ? '🚨 ' : ''}${p.texto}</option>`).join('');
+  }
+}
+
+async function vincularPerguntaSintoma(e) {
+  e.preventDefault();
+  const sintoma_id = document.getElementById('vinc-sintoma').value;
+  const pergunta_id = document.getElementById('vinc-pergunta').value;
+  const prioridade = parseInt(document.getElementById('vinc-prioridade').value) || 0;
+  if (!sintoma_id || !pergunta_id) return;
+
+  const { error } = await supabaseClient.from('sintoma_perguntas').insert([{ sintoma_id, pergunta_id, prioridade }]);
+  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+  mostrarToast('Pergunta vinculada ao sintoma.', 'sucesso');
+  await sincronizarPerguntas();
+}
 
     // =========================================================================
     // 11. LOCALIDADES — Cidade → Bairro → Rua → Nº
@@ -1926,6 +2478,10 @@ function limparEnderecoEstruturado() {
       e.preventDefault();
       const nome = document.getElementById('cad-cidade-nome').value.trim();
       const uf = document.getElementById('cad-cidade-uf').value.trim().toUpperCase();
+
+      const dup = verificarCidadeDuplicada(nome, uf);
+      if (dup) return mostrarToast(`Já existe: ${dup.nome} - ${dup.uf}`, 'aviso');
+
       if (!nome || !uf) return;
       const { error } = await supabaseClient.from('cidades').insert([{ nome, uf }]);
       if (error) return mostrarToast('Erro: ' + error.message, 'erro');
@@ -1988,6 +2544,8 @@ async function salvarBairro(e) {
   if (!cidade) return mostrarToast('Cidade não encontrada. Selecione na lista.', 'erro');
   const nome = document.getElementById('cad-bairro-nome').value.trim();
   if (!nome) return;
+  const dup = verificarBairroDuplicado(nome, cidade.id);
+  if (dup) return mostrarToast(`Já existe bairro "${dup.nome}" em ${cidade.nome} - ${cidade.uf}`, 'aviso');
   const { error } = await supabaseClient.from('bairros').insert([{ cidade_id: cidade.id, nome }]);
   if (error) return mostrarToast('Erro: ' + error.message, 'erro');
   document.getElementById('cad-bairro-nome').value = '';
@@ -2040,6 +2598,8 @@ async function salvarRua(e) {
   if (!bairro) return mostrarToast('Bairro não encontrado. Digite na lista.', 'erro');
   const nome = document.getElementById('cad-rua-nome').value.trim();
   if (!nome) return;
+  const dup = verificarRuaDuplicada(nome, bairro.id);
+  if (dup) return mostrarToast(`Já existe rua "${dup.nome}" em ${bairro.nome}`, 'aviso');
   const { error } = await supabaseClient.from('ruas').insert([{ bairro_id: bairro.id, nome }]);
   if (error) return mostrarToast('Erro: ' + error.message, 'erro');
   document.getElementById('cad-rua-nome').value = '';
@@ -2117,6 +2677,7 @@ async function renderizarAdminRuas() {
       <button onclick="excluirRua('${r.id}', '${bairro.id}')" class="text-red-500 font-black px-2">✕</button>
     </div>
   `).join('');
+  popularDatalistsCadastros();
 }
 
 function resolverCidadePorNome(texto) {
@@ -2316,6 +2877,45 @@ function resolverBairroPorNome(texto, cidadeId) {
     .map(s => s.trim())
     .filter(Boolean);
 }
+
+function copiarLocalizacao() {
+  const link = (document.getElementById('solicitante-link-gps')?.value || '').trim();
+  const endereco = (document.getElementById('solicitante-end')?.value || '').trim();
+  const texto = link || endereco;
+
+  if (!texto) {
+    return mostrarToast('Sem localização para copiar. Cole um link GPS ou preencha o endereço.', 'aviso');
+  }
+
+  navigator.clipboard.writeText(texto)
+    .then(() => mostrarToast(link ? '📋 Link GPS copiado.' : '📋 Endereço copiado.', 'sucesso'))
+    .catch(() => mostrarToast('Não foi possível copiar. Copie manualmente.', 'erro'));
+}
+
+function abrirLocalizacaoNovaPagina() {
+  const link = (document.getElementById('solicitante-link-gps')?.value || '').trim();
+  const endereco = (document.getElementById('solicitante-end')?.value || '').trim();
+
+  let url = link;
+
+  // Sem link GPS → usa o endereço para gerar busca no Google Maps
+  if (!url && endereco) {
+    url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`;
+  }
+
+  if (!url) {
+    return mostrarToast('Sem localização para abrir. Cole um link GPS ou preencha o endereço.', 'aviso');
+  }
+
+  // Se o conteúdo não for URL reconhecida (ex: colaram "coordenadas -23.5, -46.6"),
+  // trata como busca do Maps em vez de abrir uma URL inválida
+  if (!/^https?:\/\//i.test(url) && !/^geo:/i.test(url)) {
+    url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(url)}`;
+  }
+
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
   </script>
 </body>
 </html>
