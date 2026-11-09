@@ -4,568 +4,623 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#b30000">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./shared.css">
-  <link rel="stylesheet" href="./triagem.css">
-
   <title>COB 193 - Triagem e Despacho Rápido</title>
   <link rel="manifest" href="./manifest.json">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,...">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E">
 
-  <script src="./shared.js" defer></script>
-  <script src="./triagem.js" defer></script>
+  <!-- CSS EXTERNO DA TRIAGEM -->
+  <link rel="stylesheet" href="./triagem.css">
+
+  <!-- SCRIPT DE TEMA (ANTES DO PAINT PARA NÃO PISCAR) -->
+  <script>
+    (function(){
+      try {
+        const saved = localStorage.getItem('cbmgo193.theme');
+        if (saved === 'light') {
+          /* usuário escolheu claro */
+        } else if (saved === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      } catch(_) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = { darkMode: 'class', corePlugins: { preflight: false } };
-  </script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
-<body class="pb-20 lg:pb-8 select-none bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans">
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen pb-20 lg:pb-8 font-sans transition-colors duration-200 select-none">
 
-<!-- HEADER E NAVEGAÇÃO -->
-<header class="app-bar" role="banner">
-  <div class="brand">
-    <div class="brand-badge" aria-hidden="true">193</div>
-    <div class="brand-text">
-      <h1 id="appTitle">COB 193 — Triagem</h1>
-      <small>CBMGO · 10º BBM · Catalão</small>
-    </div>
-  </div>
-  <div class="app-bar-actions">
-    <span id="status-conexao" class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-600 text-white hidden sm:inline-block">🔄 Sincronizando...</span>
-    <span id="timer-triagem" class="hidden text-xs font-black text-red-400 font-mono ml-2"></span>
-    <button id="installBtn" class="icon-btn" type="button" hidden><span aria-hidden="true">📲</span></button>
-    <button id="themeBtn" class="icon-btn" type="button"><span data-icon aria-hidden="true">🌙</span></button>
-  </div>
-</header>
-
-<nav class="tabs" id="appTabs" aria-label="Navegação entre aplicativos"></nav>
-
-<div class="subtabs" role="tablist">
-  <button type="button" id="tab-triagem" class="tab-inner active" onclick="alternarAba('triagem')">🎧 Triagem</button>
-  <button type="button" id="tab-viaturas" class="tab-inner" onclick="alternarAba('viaturas')">🚒 Viaturas</button>
-  <button type="button" id="tab-cadastros" class="tab-inner" onclick="alternarAba('cadastros')">⚙️ Banco (<span id="badge-total-banco">0</span>)</button>
-</div>
-
-<main class="max-w-7xl mx-auto p-3 md:p-6">
-
-  <div id="alerta-red-flag" class="hidden mb-6 bg-red-600 text-white p-4 rounded-xl shadow-lg border-2 border-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse no-print">
-    <div class="flex items-center space-x-3">
-      <span class="text-3xl">🚨</span>
-      <div>
-        <h2 class="font-black text-sm md:text-base uppercase tracking-wide">Gatilho Red Flag — Despacho Imediato!</h2>
-        <p id="texto-red-flag" class="text-xs text-red-100 font-semibold mt-1"></p>
+  <header class="bg-red-700 dark:bg-red-900 text-white shadow-lg sticky top-0 z-40 no-print">
+    <div class="bg-red-900 dark:bg-red-950 border-b border-red-800 dark:border-red-900">
+      <div class="max-w-7xl mx-auto px-3 py-1.5 flex items-center justify-between gap-2">
+        <nav class="flex gap-1 overflow-x-auto" aria-label="Trocar aplicativo">
+          <a href="./index.html" class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-950/60 text-red-100 hover:bg-red-950 whitespace-nowrap transition">📋 Relatório 193</a>
+          <a href="./triagem.html" aria-current="page" class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white text-red-700 whitespace-nowrap shadow">🚑 Triagem</a>
+          <a href="./ac4.html" class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-950/60 text-red-100 hover:bg-red-950 whitespace-nowrap transition">📝 AC4</a>
+        </nav>
+        <button id="installBtnTriagem" type="button" class="px-2 py-1 rounded-md bg-red-950/60 hover:bg-red-950 text-[11px] font-bold whitespace-nowrap transition" title="Instalar aplicativo" hidden>📲 Instalar</button>
       </div>
     </div>
-    <span class="text-[11px] font-black bg-white text-red-700 px-3 py-1.5 rounded-full uppercase whitespace-nowrap">Prioridade Máxima</span>
-  </div>
 
-  <!-- ================= ABA 1: TRIAGEM ================= -->
-  <section id="view-triagem" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-    <div class="lg:col-span-7 space-y-6 no-print">
-
-      <!-- PASSO 1: SINTOMAS -->
-      <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-        <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
-          <div>
-            <h2 class="text-base font-black text-slate-800 dark:text-slate-100 uppercase">1. Sintomas</h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Selecione a natureza e digite o sintoma.</p>
-          </div>
-          <button onclick="limparChamado()" class="text-xs bg-red-50 dark:bg-red-950/50 hover:bg-red-100 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg font-bold transition">🗑️ Limpar Chamado</button>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
-          <button type="button" onclick="selecionarNaturezaRapida('TODAS')" id="btn-nat-TODAS" class="py-2.5 rounded-lg text-xs font-bold bg-red-600 text-white shadow-sm">📋 TODAS</button>
-          <button type="button" onclick="selecionarNaturezaRapida('CLINICA')" id="btn-nat-CLINICA" class="py-2.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">🚑 CLÍNICA</button>
-          <button type="button" onclick="selecionarNaturezaRapida('TRAUMA')" id="btn-nat-TRAUMA" class="py-2.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">💥 TRAUMA</button>
-          <button type="button" onclick="selecionarNaturezaRapida('INCENDIO')" id="btn-nat-INCENDIO" class="py-2.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">🔥 INCÊNDIO</button>
-          <button type="button" onclick="selecionarNaturezaRapida('SALVAMENTO')" id="btn-nat-SALVAMENTO" class="py-2.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 col-span-2 sm:col-span-1">🛟 SALVAMENTO</button>
-        </div>
-
-        <div class="relative mb-4">
-          <input type="text" id="input-busca-sintoma" onfocus="mostrarListaSugestoes()" oninput="filtrarSugestoesSintomas()" onkeydown="atalhoEnterSintoma(event)" placeholder="Digite o sintoma..." autocomplete="off" class="w-full border-2 border-slate-300 dark:border-slate-600 focus:border-red-500 focus:ring-0 bg-slate-50 dark:bg-slate-900 rounded-xl p-3 pr-14 text-sm font-semibold outline-none transition-colors">
-          <button type="button" onclick="ditarSintomaPorVoz(this)" class="absolute right-2 top-1/2 -translate-y-1/2 bg-red-600 hover:bg-red-700 text-white w-10 h-10 rounded-lg flex items-center justify-center shadow-md transition">
-            <span class="text-lg">🎤</span>
-          </button>
-          <ul id="dropdown-sugestoes" class="hidden absolute z-30 w-full mt-2 max-h-60 overflow-y-auto bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl shadow-2xl divide-y dark:divide-slate-700 text-sm"></ul>
-        </div>
-
+    <div class="max-w-7xl mx-auto px-3 py-2.5 flex flex-wrap justify-between items-center gap-2">
+      <div class="flex items-center space-x-2.5">
+        <span class="text-2xl md:text-3xl">🚒</span>
         <div>
-          <span class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Sintomas Confirmados:</span>
-          <div id="tags-sintomas-selecionados" class="flex flex-wrap gap-2 min-h-[50px] p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-600">
-            <span class="text-xs text-slate-400 italic self-center">Nenhum sintoma adicionado.</span>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-base md:text-xl font-black tracking-wider uppercase">COB 193</h1>
+            <span id="status-conexao" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">⏳ Conectando...</span>
+            <span id="timer-triagem" class="hidden text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-400 text-slate-900"></span>
           </div>
+          <p class="text-[11px] text-red-200" id="info-cache">Sincronizando banco...</p>
         </div>
       </div>
 
-      <!-- PASSO 2: PERGUNTAS -->
-      <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-purple-200 dark:border-purple-900/50">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-base font-black text-purple-700 dark:text-purple-400 uppercase">🔍 2. Perguntas de Triagem</h2>
-          <span id="badge-perguntas-pendentes" class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 hidden"></span>
-        </div>
-        <div id="painel-perguntas-triagem" class="space-y-2">
-          <p class="text-xs text-slate-400 italic">Adicione sintomas para ver as perguntas...</p>
+      <div class="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pt-1 sm:pt-0">
+        <button onclick="alternarAba('triagem')" id="tab-triagem" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-white text-red-700 shadow whitespace-nowrap">🎧 Triagem Rápida</button>
+        <button onclick="alternarAba('viaturas')" id="tab-viaturas" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap">🚒 Viaturas & Guarnição</button>
+        <button onclick="alternarAba('cadastros')" id="tab-cadastros" class="flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap">⚙️ Banco (<span id="badge-total-banco">0</span>)</button>
+        <button onclick="sincronizarComSupabase(true)" class="p-2 rounded-lg text-xs font-bold bg-red-800 hover:bg-red-950 text-white" title="Sincronizar com Supabase">🔄</button>
+        <button onclick="alternarTema()" id="btn-tema" class="p-2 rounded-lg bg-red-800 hover:bg-red-950 text-white text-xs" title="Alternar tema"><span id="icone-tema">🌙</span></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-3 md:p-5">
+
+    <div id="alerta-red-flag" class="hidden mb-4 bg-red-600 text-white p-3.5 rounded-xl shadow-lg border-2 border-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-pulse no-print">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl">🚨</span>
+        <div>
+          <h2 class="font-black text-xs md:text-sm uppercase tracking-wide">Gatilho Red Flag — Despacho Imediato!</h2>
+          <p id="texto-red-flag" class="text-xs text-red-100 font-semibold"></p>
         </div>
       </div>
+      <span class="text-[11px] font-black bg-white text-red-700 px-3 py-1 rounded-full uppercase">Prioridade Máxima</span>
+    </div>
 
-      <!-- PASSO 3: ENDEREÇO & VÍTIMA -->
-      <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-5">
-        <h2 class="text-base font-black text-slate-800 dark:text-slate-100 uppercase border-b border-slate-100 dark:border-slate-700 pb-2">3. Endereço & Vítima</h2>
+    <!-- ================= ABA 1: TRIAGEM ================= -->
+    <section id="view-triagem" class="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
-        <!-- Endereço Principal -->
-        <div>
-          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">📍 Endereço / Ponto de Referência</label>
-          <div class="flex gap-2">
-            <input type="text" id="solicitante-end" oninput="atualizarRelatorio()" autocomplete="off" placeholder="Rua, número, bairro..." class="flex-1 w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm font-semibold outline-none focus:border-red-500">
-            <button type="button" onclick="ditarPorVoz('solicitante-end', this)" class="bg-red-600 hover:bg-red-700 text-white px-5 rounded-lg font-bold text-sm shadow-sm transition">🎤 Falar</button>
+      <div class="lg:col-span-7 space-y-4 no-print">
+
+        <!-- PASSO 1: SINTOMAS -->
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-2 border-red-500/40 dark:border-red-500/30">
+          <div class="flex flex-wrap justify-between items-center border-b dark:border-slate-700 pb-2 mb-3 gap-2">
+            <div>
+              <h2 class="text-sm md:text-base font-black text-red-600 dark:text-red-400 uppercase">1. Triagem de Sintomas / Situação</h2>
+              <p class="text-[11px] text-slate-400">Digite 2 letras ou selecione a natureza (os sintomas já usados somem da lista).</p>
+            </div>
+            <button onclick="limparChamado()" class="text-xs bg-red-100 dark:bg-red-950 hover:bg-red-200 text-red-700 dark:text-red-300 px-3 py-1.5 rounded-lg font-black transition">🗑️ Limpar Tudo (F4)</button>
           </div>
-        </div>
 
-        <!-- Endereço Estruturado -->
-        <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-          <div class="flex justify-between items-center mb-3">
-            <button type="button" onclick="togglePainelEstruturado()" class="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-red-600 flex items-center gap-1">
-              🏙️ Endereço Estruturado <span id="icone-toggle-estruturado" class="text-[10px]">▼</span>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mb-3">
+            <button type="button" onclick="selecionarNaturezaRapida('TODAS')" id="btn-nat-TODAS" class="btn-natureza py-2 px-2 rounded-lg text-xs font-black bg-red-600 text-white shadow">📋 TODAS</button>
+            <button type="button" onclick="selecionarNaturezaRapida('CLINICA')" id="btn-nat-CLINICA" class="btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">🚑 CLÍNICA</button>
+            <button type="button" onclick="selecionarNaturezaRapida('TRAUMA')" id="btn-nat-TRAUMA" class="btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">💥 TRAUMA</button>
+            <button type="button" onclick="selecionarNaturezaRapida('INCENDIO')" id="btn-nat-INCENDIO" class="btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">🔥 INCÊNDIO</button>
+            <button type="button" onclick="selecionarNaturezaRapida('SALVAMENTO')" id="btn-nat-SALVAMENTO" class="btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 col-span-2 sm:col-span-1">🛟 SALVAMENTO</button>
+          </div>
+
+          <div class="relative mb-3">
+            <input type="text" id="input-busca-sintoma" onfocus="mostrarListaSugestoes()" oninput="filtrarSugestoesSintomas()" onkeydown="atalhoEnterSintoma(event)" placeholder="Digite o sintoma (ex: dor, resp, sangue...) e aperte Enter..." autocomplete="off" class="w-full border-2 border-red-400 dark:border-red-500 bg-white dark:bg-slate-700 rounded-lg p-2.5 pr-12 text-sm focus:ring-2 focus:ring-red-600 outline-none font-semibold">
+            <button type="button" onclick="ditarSintomaPorVoz(this)" title="Falar sintoma" class="absolute right-1.5 top-1/2 -translate-y-1/2 bg-red-600 hover:bg-red-700 text-white w-9 h-9 rounded-lg flex items-center justify-center shadow">
+              <span class="text-sm">🎤</span>
             </button>
-            <span id="badge-cidade-ativa" class="text-[11px] text-slate-500 font-medium"></span>
+            <ul id="dropdown-sugestoes" class="hidden absolute z-30 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg shadow-xl divide-y dark:divide-slate-600 text-sm"></ul>
           </div>
-          <div id="painel-endereco-estruturado" class="hidden grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Cidade</label>
-              <input type="text" id="est-cidade" oninput="onInputCidadeEstruturada()" placeholder="Cidade" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs">
+
+          <div>
+            <span class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">Sintomas Confirmados na Ligação:</span>
+            <div id="tags-sintomas-selecionados" class="flex flex-wrap gap-2 min-h-[38px] p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
+              <span class="text-xs text-slate-400 italic self-center">Nenhum sintoma adicionado ainda.</span>
             </div>
+          </div>
+        </div>
+
+        <!-- PASSO 1.5: PERGUNTAS DE TRIAGEM -->
+        <div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-xl shadow-sm border-2 border-purple-400/40 dark:border-purple-500/30">
+          <div class="flex flex-wrap justify-between items-center border-b dark:border-slate-700 pb-2 mb-3 gap-2">
             <div>
-              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Bairro</label>
-              <input type="text" id="est-bairro" oninput="onInputBairroEstruturado()" placeholder="Bairro" disabled class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs disabled:opacity-50">
+              <h2 class="text-sm md:text-base font-black text-purple-600 dark:text-purple-400 uppercase">🔍 2. Perguntas de Triagem</h2>
+              <p class="text-[11px] text-slate-400">Baseadas nos sintomas marcados. Responda para derivar novos sintomas automaticamente.</p>
             </div>
-            <div>
-              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Rua</label>
-              <input type="text" id="est-rua" oninput="onInputRuaEstruturada()" placeholder="Rua" disabled class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs disabled:opacity-50">
-            </div>
-            <div>
-              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Número</label>
-              <div class="flex gap-1">
-                <input type="text" id="est-numero" oninput="onInputRuaEstruturada()" placeholder="123" disabled class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs disabled:opacity-50">
-                <button type="button" onclick="marcarSemNumero()" class="text-[10px] bg-slate-200 dark:bg-slate-700 px-2 rounded font-bold">S/N</button>
+            <span id="badge-perguntas-pendentes" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 hidden"></span>
+          </div>
+          <div id="painel-perguntas-triagem" class="space-y-2">
+            <p class="text-sm text-slate-400 italic">Adicione sintomas no Passo 1 para ver as perguntas de triagem...</p>
+          </div>
+        </div>
+
+        <!-- PASSO 2: ENDEREÇO & VÍTIMA -->
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
+          <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2">
+            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">3. Endereço & Vítima (Ditado por Voz 🎤)</h2>
+            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">Toque em 🎤 para falar o endereço</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">📍 Endereço / Ponto de Referência</label>
+              <div class="flex space-x-1.5">
+                <input type="text" id="solicitante-end" oninput="atualizarRelatorio()" placeholder="Digite ou use o endereço estruturado abaixo..." class="w-full border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm font-semibold outline-none">
+                <button type="button" onclick="ditarPorVoz('solicitante-end', this)" class="bg-red-600 hover:bg-red-700 text-white px-3.5 rounded-lg font-bold text-xs flex items-center space-x-1 shrink-0 shadow" title="Falar endereço">
+                  <span>🎤</span><span>Falar</span>
+                </button>
+              </div>
+
+              <!-- 🏙️ ENDEREÇO ESTRUTURADO -->
+              <div class="mt-2">
+                <div class="flex justify-between items-center">
+                  <button type="button" onclick="togglePainelEstruturado()" class="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-red-600 flex items-center gap-1">
+                    🏙️ <span>Endereço Estruturado</span>
+                    <span id="icone-toggle-estruturado" class="text-[10px]">▼</span>
+                  </button>
+                  <span id="badge-cidade-ativa" class="text-[10px] text-slate-400 italic"></span>
+                </div>
+                <div id="painel-endereco-estruturado" class="hidden mt-2 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 space-y-2">
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                      <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">🏙️ Cidade</label>
+                      <input type="text" id="est-cidade" autocomplete="off" oninput="onInputCidadeEstruturada()" placeholder="Digite a cidade..." class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">🏘️ Bairro</label>
+                      <input type="text" id="est-bairro" autocomplete="off" oninput="onInputBairroEstruturado()" placeholder="Digite o bairro..." disabled class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">🛣️ Rua</label>
+                      <input type="text" id="est-rua" oninput="onInputRuaEstruturada()" placeholder="Digite a rua..." disabled class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">#️⃣ Número</label>
+                      <div class="flex gap-1">
+                        <input type="text" id="est-numero" oninput="onInputRuaEstruturada()" placeholder="123" disabled class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs outline-none">
+                        <button type="button" onclick="marcarSemNumero()" class="text-[10px] bg-slate-200 dark:bg-slate-700 px-2 rounded font-bold shrink-0">S/N</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex justify-between items-center pt-1">
+                    <p class="text-[10px] text-slate-500 italic">Preenche o campo acima automaticamente</p>
+                    <button type="button" onclick="limparEnderecoEstruturado()" class="text-[10px] text-red-600 dark:text-red-400 font-bold hover:underline">🧹 Limpar campos</button>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="flex justify-end mt-2">
-            <button type="button" onclick="limparEnderecoEstruturado()" class="text-[10px] text-red-500 font-bold hover:underline">Limpar Campos</button>
-          </div>
-          </div>
-        </div>
 
-        <!-- Solicitante -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">WhatsApp</label>
-            <input type="tel" id="solicitante-tel" oninput="atualizarRelatorio()" autocomplete="off" placeholder="(64) 99999-9999" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm outline-none focus:border-red-500">
-          </div>
-          <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Nome do Solicitante</label>
-            <input type="text" id="solicitante-nome" oninput="atualizarRelatorio()" autocomplete="new-password" placeholder="Nome" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm outline-none focus:border-red-500">
-          </div>
-        </div>
-
-        <!-- GPS -->
-        <div class="p-4 bg-blue-50 dark:bg-slate-900/50 border border-blue-100 dark:border-slate-700 rounded-xl space-y-3">
-          <div class="flex flex-wrap gap-3">
-            <button type="button" onclick="pedirLocalizacaoWhatsApp()" class="flex-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-lg shadow-sm transition">📲 Pedir GPS no Zap</button>
-            <button type="button" onclick="gerarLinkMapsPeloEndereco()" class="flex-1 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-lg shadow-sm transition">🗺️ Buscar no Maps</button>
-          </div>
-          <div class="flex gap-2">
-            <input type="url" id="solicitante-link-gps" oninput="atualizarRelatorio()" placeholder="Cole o link do GPS..." class="flex-1 border border-blue-200 dark:border-slate-600 rounded-lg p-2 text-xs outline-none">
-            <button type="button" onclick="copiarLocalizacao()" class="bg-slate-600 hover:bg-slate-700 text-white px-4 rounded-lg font-bold transition">📋</button>
-            <button type="button" onclick="abrirLocalizacaoNovaPagina()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-lg font-bold transition">🔗</button>
-          </div>
-        </div>
-
-        <!-- Vítimas -->
-        <div class="pt-4 border-t border-slate-100 dark:border-slate-700 space-y-4">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-bold uppercase text-slate-500 w-full mb-1">Faixa Etária Rápida:</span>
-            <button type="button" onclick="setIdadeRapida('Bebê')" class="text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-bold transition">👶 Bebê</button>
-            <button type="button" onclick="setIdadeRapida('Criança')" class="text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-bold transition">🧒 Criança</button>
-            <button type="button" onclick="setIdadeRapida('Adulto')" class="text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-bold transition">🧑 Adulto</button>
-            <button type="button" onclick="setIdadeRapida('Idoso')" class="text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-bold transition">🧓 Idoso</button>
-          </div>
-          
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Idade</label>
-              <input type="text" id="vitima-idade" oninput="atualizarRelatorio()" placeholder="Ex: Adulto" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm outline-none">
+              <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Telefone (WhatsApp)</label>
+              <input type="tel" id="solicitante-tel" oninput="atualizarRelatorio()" placeholder="64999990000" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2 text-sm outline-none">
             </div>
-            
+
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Peso</label>
-              <select id="vitima-peso" onchange="atualizarRelatorio()" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm outline-none">
-                <option value="Peso não inf.">Selecione...</option>
-                <option value="Até 20 kg">Até 20 kg</option>
+              <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Solicitante</label>
+              <input type="text" id="solicitante-nome" oninput="atualizarRelatorio()" placeholder="Nome" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2 text-sm outline-none">
+            </div>
+          </div>
+
+          <div class="p-2.5 bg-blue-50 dark:bg-slate-900/80 border border-blue-200 dark:border-slate-700 rounded-xl flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" onclick="pedirLocalizacaoWhatsApp()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg">📲 Pedir GPS no Zap</button>
+              <button type="button" onclick="gerarLinkMapsPeloEndereco()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg">🗺️ Gerar Maps pelo Endereço</button>
+            </div>
+            <div class="flex gap-1 w-full">
+              <input type="url" id="solicitante-link-gps" oninput="atualizarRelatorio()" placeholder="Cole aqui o link GPS..." class="flex-1 min-w-0 border border-blue-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg p-1.5 text-xs outline-none">
+              <button type="button" onclick="copiarLocalizacao()" title="Copiar localização (link ou endereço)" class="text-[11px] bg-slate-600 hover:bg-slate-700 text-white font-bold px-2 py-1.5 rounded-lg shrink-0">📋</button>
+              <button type="button" onclick="abrirLocalizacaoNovaPagina()" title="Abrir localização em nova aba" class="text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1.5 rounded-lg shrink-0">🔗</button>
+            </div>
+          </div>
+
+          <div class="pt-2 border-t dark:border-slate-700 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Faixa Etária (Clique):</span>
+              <div class="flex flex-wrap gap-1">
+                <button type="button" onclick="setIdadeRapida('Bebê')" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-bold">👶 Bebê</button>
+                <button type="button" onclick="setIdadeRapida('Criança')" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-bold">🧒 Criança</button>
+                <button type="button" onclick="setIdadeRapida('Adulto')" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-bold">🧑 Adulto</button>
+                <button type="button" onclick="setIdadeRapida('Idoso')" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-bold">🧓 Idoso</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input type="text" id="vitima-idade" oninput="atualizarRelatorio()" placeholder="Idade (ex: Adulto)" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2 text-xs font-semibold outline-none">
+              <select id="vitima-peso" onchange="atualizarRelatorio()" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2 text-xs font-semibold outline-none">
+                <option value="Peso não inf.">Faixa de Peso</option>
+                <option value="Até 20 kg (Infantil)">Até 20 kg (Infantil)</option>
                 <option value="20 a 40 kg">20 a 40 kg</option>
                 <option value="40 a 60 kg">40 a 60 kg</option>
                 <option value="60 a 80 kg">60 a 80 kg</option>
                 <option value="80 a 100 kg">80 a 100 kg</option>
                 <option value="100 a 120 kg">100 a 120 kg</option>
                 <option value="120 a 140 kg">120 a 140 kg</option>
-                <option value="Acima de 140 kg">Acima de 140 kg</option>
+                <option value="Acima de 140 kg (Obeso)">Acima de 140 kg (Obeso)</option>
               </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Qtd. Vítimas</label>
-              <div class="flex items-center border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden h-[46px] bg-white dark:bg-slate-800">
-                <button type="button" onclick="alterarQtdVitimas(-1)" class="btn-icon bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 h-full w-12 text-lg font-black">-</button>
-                <input type="number" id="vitima-qtd" value="1" min="1" oninput="atualizarRelatorio()" class="flex-1 text-center border-none bg-transparent font-black text-sm outline-none">
-                <button type="button" onclick="alterarQtdVitimas(1)" class="btn-icon bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 h-full w-12 text-lg font-black">+</button>
+              <div class="flex items-center space-x-1">
+                <span class="text-xs font-bold text-slate-500">Vítimas:</span>
+                <button type="button" onclick="alterarQtdVitimas(-1)" class="bg-slate-200 dark:bg-slate-700 px-2.5 py-1.5 rounded font-black text-xs">-</button>
+                <input type="number" id="vitima-qtd" value="1" min="1" oninput="atualizarRelatorio()" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-1.5 text-xs font-black text-center outline-none">
+                <button type="button" onclick="alterarQtdVitimas(1)" class="bg-slate-200 dark:bg-slate-700 px-2.5 py-1.5 rounded font-black text-xs">+</button>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- PASSO 4: HIPÓTESES -->
-      <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-        <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">
-          <h2 class="text-base font-black text-slate-800 dark:text-slate-100 uppercase">4. Diagnóstico & Dicas</h2>
-        </div>
-        <div id="resultados-diagnosticos" class="space-y-4">
-          <p class="text-sm text-slate-400 italic text-center py-4">Selecione sintomas para gerar o diagnóstico...</p>
-        </div>
-      </div>
-
-      <!-- PASSO 5: VIATURAS -->
-      <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-        <h2 class="text-base font-black text-slate-800 dark:text-slate-100 uppercase mb-4">5. Empenhar Viaturas</h2>
-        <div id="selecao-viaturas-triagem" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
-      </div>
-
-    </div>
-
-    <!-- Relatório Lateral (Ficha) -->
-    <div class="lg:col-span-5" id="secao-despacho-mobile">
-      <div class="sticky top-20 space-y-4">
-        
-        <!-- Botões de Ação -->
-        <div class="bg-slate-800 p-3 rounded-xl flex flex-wrap gap-2 justify-between items-center shadow-md">
-          <span class="text-white text-xs font-bold uppercase tracking-widest px-2">📋 Ações:</span>
-          <div class="flex flex-wrap gap-2">
-            <button onclick="copiarRelatorio()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-lg shadow transition">📑 Copiar</button>
-            <button onclick="enviarGrupoOperacoesConjuntas()" class="bg-green-600 hover:bg-green-500 text-white text-xs font-bold px-3 py-2 rounded-lg shadow transition">📢 Grupo</button>
-            <button onclick="baixarPDF()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-lg shadow transition">📄 PDF</button>
+        <!-- PASSO 3: HIPÓTESES -->
+        <div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+          <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-3">
+            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">4. Hipóteses Diagnósticas & Script de Telefone</h2>
+            <span class="text-[10px] bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded font-semibold">🔒 Dicas para ler ao solicitante</span>
+          </div>
+          <div id="resultados-diagnosticos" class="space-y-3">
+            <p class="text-sm text-slate-400 italic">Selecione os sintomas no passo 1 para gerar o diagnóstico...</p>
           </div>
         </div>
 
-        <div id="painel-whatsapp-militares" class="hidden bg-emerald-900/20 border border-emerald-500/30 p-4 rounded-xl space-y-3 shadow-inner">
-          <h4 class="text-xs font-bold uppercase text-emerald-400">📲 Enviar para Militar:</h4>
-          <div id="botoes-whatsapp-militares" class="flex flex-wrap gap-2"></div>
+        <!-- PASSO 4: VIATURAS -->
+        <div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+          <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-3">
+            <h2 class="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200">5. Empenhar Viaturas & Guarnição</h2>
+            <button onclick="alternarAba('viaturas')" class="text-xs text-red-600 dark:text-red-400 font-bold hover:underline">⚙️ Escalar Militares</button>
+          </div>
+          <div id="selecao-viaturas-triagem" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs"></div>
         </div>
 
-        <!-- Ficha de Despacho -->
-        <div id="area-relatorio" class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border-t-8 border-red-600 space-y-4 text-sm">
-          <div class="flex justify-between items-start border-b border-slate-100 dark:border-slate-700 pb-4">
-            <div>
-              <h3 class="font-black text-lg text-slate-900 dark:text-white uppercase">Ficha de Despacho</h3>
-              <p class="text-xs text-slate-500 font-medium">COB 193 - CBMGO</p>
-              <p class="text-xs font-bold text-red-600 mt-1">Protocolo: <span id="rel-protocolo">—</span></p>
+      </div>
+
+      <!-- Relatório + Disparo -->
+      <div class="lg:col-span-5" id="secao-despacho-mobile">
+        <div class="sticky top-16 space-y-4">
+
+          <div class="bg-slate-800 dark:bg-slate-950 p-3 rounded-xl flex flex-wrap gap-2 justify-between items-center no-print border dark:border-slate-800">
+            <span class="text-white text-xs font-bold uppercase tracking-wider px-1">📋 Despacho:</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="copiarRelatorio()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition">📑 Copiar (F2)</button>
+              <button onclick="enviarGrupoOperacoesConjuntas()" class="bg-green-700 hover:bg-green-800 text-white text-xs font-bold px-3 py-2 rounded-lg transition">📢 Grupo Op. Conjuntas</button>
+              <button onclick="baixarPDF()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-2.5 py-2 rounded-lg transition">📄 PDF</button>
+              <button onclick="window.print()" class="bg-slate-600 hover:bg-slate-700 text-white text-xs font-bold px-2.5 py-2 rounded-lg transition">🖨️</button>
             </div>
-            <span id="rel-datahora" class="text-[10px] font-mono bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md"></span>
           </div>
 
-          <div class="space-y-2 text-sm bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-            <p><strong>Endereço:</strong> <span id="rel-end" class="font-bold text-red-600 block mt-1">Não informado</span></p>
-            <p id="rel-linha-gps" class="hidden"><strong>📍 GPS:</strong> <a id="rel-link-gps" href="#" target="_blank" class="text-blue-600 underline break-all">Link</a></p>
-            <p><strong>Solicitante:</strong> <span id="rel-nome">Não inf.</span> | <strong>Tel:</strong> <span id="rel-tel">Não inf.</span></p>
-            <p><strong>Natureza:</strong> <span id="rel-natureza" class="font-bold">TODAS</span></p>
-            <p><strong>Vítima(s):</strong> <span id="rel-qtd">1</span> | <strong>Idade:</strong> <span id="rel-idade">Não inf.</span> | <strong>Peso:</strong> <span id="rel-peso">Não inf.</span></p>
+          <div id="painel-whatsapp-militares" class="hidden bg-emerald-950/40 border border-emerald-700/60 p-3.5 rounded-xl space-y-2 no-print">
+            <h4 class="text-xs font-bold uppercase text-emerald-400">📲 1 Clique — Enviar p/ Militar Escalado:</h4>
+            <div id="botoes-whatsapp-militares" class="flex flex-wrap gap-2"></div>
           </div>
 
+          <div id="area-relatorio" class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-md border-t-8 border-red-700 space-y-3 text-sm">
+            <div class="flex justify-between items-start border-b dark:border-slate-700 pb-2.5">
+              <div>
+                <h3 class="font-black text-base uppercase text-slate-900 dark:text-white">Ficha de Despacho 193</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Corpo de Bombeiros Militar - COB</p>
+                <p class="text-[11px] font-bold text-red-700 dark:text-red-400 mt-0.5">Protocolo: <span id="rel-protocolo">—</span></p>
+              </div>
+              <span id="rel-datahora" class="text-[11px] font-mono bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded"></span>
+            </div>
+
+            <div class="space-y-1 text-xs">
+              <p><strong>Endereço:</strong> <span id="rel-end" class="font-bold text-red-600 dark:text-red-400">Não informado</span></p>
+              <p id="rel-linha-gps" class="hidden"><strong>📍 Mapa GPS:</strong> <a id="rel-link-gps" href="#" target="_blank" class="text-blue-600 dark:text-blue-400 underline break-all"></a></p>
+              <p><strong>Solicitante:</strong> <span id="rel-nome">Não inf.</span> | <strong>Tel:</strong> <span id="rel-tel">Não inf.</span></p>
+              <p><strong>Natureza:</strong> <span id="rel-natureza">TODAS</span></p>
+              <p><strong>Vítima(s):</strong> <span id="rel-qtd">1</span> | <strong>Idade:</strong> <span id="rel-idade">Não inf.</span> | <strong>Peso:</strong> <span id="rel-peso">Não inf.</span></p>
+            </div>
+
+            <div>
+              <h4 class="font-bold uppercase text-[11px] text-slate-500 dark:text-slate-400 border-b dark:border-slate-700 pb-1 mb-1">Sintomas / Quadro no Local:</h4>
+              <ul id="rel-lista-sintomas" class="list-disc list-inside space-y-0.5 text-xs font-medium">
+                <li class="text-slate-400 italic">Nenhum sintoma selecionado</li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 class="font-bold uppercase text-[11px] text-slate-500 dark:text-slate-400 border-b dark:border-slate-700 pb-1 mb-1">Suspeita & Criticidade:</h4>
+              <div id="rel-lista-diagnosticos" class="space-y-1 text-xs">
+                <p class="text-slate-400 italic">Sem hipóteses calculadas</p>
+              </div>
+            </div>
+
+            <div>
+              <h4 class="font-bold uppercase text-[11px] text-slate-500 dark:text-slate-400 border-b dark:border-slate-700 pb-1 mb-1">Viaturas & Guarnição Empenhada:</h4>
+              <div id="rel-lista-viaturas" class="text-xs font-semibold text-red-700 dark:text-red-400">Nenhuma viatura selecionada</div>
+            </div>
+
+            <div class="no-print pt-1">
+              <div class="flex justify-between items-center mb-1">
+                <label class="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Observações:</label>
+                <button type="button" onclick="ditarPorVoz('obs-atendente', this)" class="text-[11px] bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded font-bold">🎤 Falar Obs</button>
+              </div>
+              <textarea id="obs-atendente" oninput="atualizarRelatorio()" rows="2" placeholder="Detalhes extras..." class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-2 text-xs outline-none"></textarea>
+            </div>
+
+            <div id="rel-obs-container" class="hidden">
+              <h4 class="font-bold uppercase text-[11px] text-slate-500 dark:text-slate-400 border-b dark:border-slate-700 pb-1 mb-1">Observações do Despachante:</h4>
+              <p id="rel-obs" class="text-xs whitespace-pre-line"></p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ABA 2: VIATURAS ================= -->
+    <section id="view-viaturas" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-4 space-y-6">
+          <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <h2 class="text-base font-bold border-b dark:border-slate-700 pb-2 mb-4">🚒 Cadastrar Viatura (Supabase)</h2>
+            <form onsubmit="salvarViatura(event)" class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Unidade (OBM)</label>
+                <input type="text" id="cad-vtr-unidade" required value="10º BBM" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm font-bold">
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Prefixo da Viatura</label>
+                <input type="text" id="cad-vtr-prefixo" required placeholder="Ex: UR-101, ABTS-10" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Tipo</label>
+                <select id="cad-vtr-tipo" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+                  <option value="Unidade de Resgate (UR)">🚑 Unidade de Resgate (UR)</option>
+                  <option value="Auto Bomba Tanque e Salvamento (ABTS)">🚒 Auto Bomba Tanque (ABTS)</option>
+                  <option value="Auto Salvamento Avançado (ASA)">🛟 Auto Salvamento (ASA)</option>
+                </select>
+              </div>
+              <button type="submit" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg transition text-sm">+ Salvar Viatura no Banco</button>
+            </form>
+          </div>
+
+          <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
+            <h3 class="text-sm font-bold border-b dark:border-slate-700 pb-2">🧹 Gerenciar Turno / Plantão</h3>
+            <button onclick="limparTodasGuarnicoes()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-lg text-xs transition">🧹 Limpar Todas as Guarnições do Plantão</button>
+          </div>
+        </div>
+
+        <div class="lg:col-span-8 space-y-4">
+          <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <div class="border-b dark:border-slate-700 pb-3 mb-4">
+              <h2 class="text-base font-bold">👥 Viaturas Cadastradas & Guarnição do Dia</h2>
+            </div>
+            <div id="lista-cards-viaturas" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ABA 3: BANCO ================= -->
+    <section id="view-cadastros" class="hidden grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div class="md:col-span-5 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 h-fit">
+        <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
+          <h2 id="titulo-form-sintoma" class="text-base font-bold">➕ 1. Cadastrar Sintoma</h2>
+          <button type="button" id="btn-cancelar-sintoma" onclick="cancelarEdicaoSintoma()" class="hidden text-xs text-red-500 hover:underline font-bold">Cancelar</button>
+        </div>
+
+        <form id="form-sintoma" onsubmit="salvarSintoma(event)" class="space-y-4">
+          <input type="hidden" id="edit-sintoma-id" value="">
           <div>
-            <h4 class="font-bold uppercase text-xs text-slate-500 border-b border-slate-100 dark:border-slate-700 pb-1 mb-2">Sintomas:</h4>
-            <ul id="rel-lista-sintomas" class="list-disc pl-5 space-y-1 text-xs font-medium">
-              <li class="text-slate-400 italic list-none">Nenhum</li>
-            </ul>
+            <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Categoria</label>
+            <select id="cad-sintoma-cat" required class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+              <option value="CLINICA">Emergência Clínica</option>
+              <option value="TRAUMA">Trauma / Acidente</option>
+              <option value="INCENDIO">Incêndio</option>
+              <option value="SALVAMENTO">Salvamento / Resgate</option>
+            </select>
           </div>
-
           <div>
-            <h4 class="font-bold uppercase text-xs text-slate-500 border-b border-slate-100 dark:border-slate-700 pb-1 mb-2">Suspeita:</h4>
-            <div id="rel-lista-diagnosticos" class="space-y-1 text-xs">
-              <p class="text-slate-400 italic">Sem hipóteses</p>
-            </div>
+            <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Nome do Sintoma ou Situação</label>
+            <input type="text" id="cad-sintoma-nome" required placeholder="Ex: Vítima inconsciente..." list="datalist-sintomas-existentes" autocomplete="off" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <datalist id="datalist-sintomas-existentes"></datalist>
           </div>
+          <label class="flex items-center space-x-2.5 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 cursor-pointer">
+            <input type="checkbox" id="cad-sintoma-redflag" class="w-4 h-4 text-red-600 rounded">
+            <span class="block text-xs font-black uppercase text-red-700 dark:text-red-300">🚨 Sintoma "Red Flag" (Despacho Imediato)</span>
+          </label>
+          <button type="submit" id="btn-submit-sintoma" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg transition text-sm">Gravar Sintoma no Supabase</button>
+        </form>
 
-          <div>
-            <h4 class="font-bold uppercase text-xs text-slate-500 border-b border-slate-100 dark:border-slate-700 pb-1 mb-2">Viaturas:</h4>
-            <div id="rel-lista-viaturas" class="text-xs font-bold text-red-600">Nenhuma viatura</div>
-          </div>
-
-          <div class="no-print pt-2">
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-2">Observações:</label>
-            <textarea id="obs-atendente" oninput="atualizarRelatorio()" rows="2" placeholder="Anotações extras..." class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm outline-none focus:border-red-500"></textarea>
-          </div>
-
-          <div id="rel-obs-container" class="hidden">
-            <h4 class="font-bold uppercase text-xs text-slate-500 border-b border-slate-100 dark:border-slate-700 pb-1 mb-2">Observações:</h4>
-            <p id="rel-obs" class="text-sm whitespace-pre-line"></p>
-          </div>
+        <div class="mt-6">
+          <h3 class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Sintomas no Banco (<span id="count-sintomas">0</span>)</h3>
+          <ul id="lista-admin-sintomas" class="max-h-80 overflow-y-auto divide-y dark:divide-slate-700 border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></ul>
         </div>
-
       </div>
-    </div>
-  </section>
 
-  <!-- ================= ABA 2: VIATURAS ================= -->
-  <section id="view-viaturas" class="hidden space-y-6">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div class="lg:col-span-4 space-y-6">
-        <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-          <h2 class="text-base font-black uppercase border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">🚒 Nova Viatura</h2>
-          <form onsubmit="salvarViatura(event)" class="space-y-4">
-            <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Unidade (OBM)</label>
-              <input type="text" id="cad-vtr-unidade" required value="10º BBM" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm font-bold">
+      <div class="md:col-span-7 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-6">
+        <div>
+          <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
+            <h2 id="titulo-form-diag" class="text-base font-bold">🩺 2. Cadastrar Diagnóstico</h2>
+            <button type="button" id="btn-cancelar-diag" onclick="cancelarEdicaoDiagnostico()" class="hidden text-xs text-red-500 hover:underline font-bold">Cancelar</button>
+          </div>
+
+          <form id="form-diagnostico" onsubmit="salvarDiagnostico(event)" class="space-y-4">
+            <input type="hidden" id="edit-diag-id" value="">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="sm:col-span-2">
+                <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Título do Diagnóstico</label>
+                <input type="text" id="cad-diag-titulo" required placeholder="Ex: Parada Cardiorrespiratória" list="datalist-diagnosticos-existentes" autocomplete="off" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+                <datalist id="datalist-diagnosticos-existentes"></datalist>
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Criticidade</label>
+                <select id="cad-diag-crit" required class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm font-bold">
+                  <option value="CRITICO">🔴 CRÍTICO</option>
+                  <option value="GRAVE">🟠 GRAVE</option>
+                  <option value="INTERMEDIARIO">🟡 INTERMEDIÁRIO</option>
+                  <option value="LEVE">🟢 LEVE</option>
+                </select>
+              </div>
             </div>
+
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Prefixo</label>
-              <input type="text" id="cad-vtr-prefixo" required placeholder="Ex: UR-101" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
+              <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Descrição Técnica</label>
+              <textarea id="cad-diag-desc" rows="2" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm"></textarea>
             </div>
+
+            <div class="bg-amber-50 dark:bg-amber-950/40 p-3 rounded-lg border border-amber-300 dark:border-amber-700">
+              <label class="block text-xs font-bold uppercase text-amber-900 dark:text-amber-300 mb-1">🗣️ Dicas para o Cobista instruir pelo Telefone</label>
+              <textarea id="cad-diag-dicas" required rows="3" class="w-full border border-amber-300 dark:border-amber-700 rounded-lg p-2.5 text-sm bg-white dark:bg-slate-800"></textarea>
+            </div>
+
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Tipo</label>
-              <select id="cad-vtr-tipo" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-                <option value="UR">🚑 Unidade de Resgate (UR)</option>
-                <option value="ABTS">🚒 Auto Bomba (ABTS)</option>
-                <option value="ASA">🛟 Auto Salvamento (ASA)</option>
-              </select>
+              <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Vincular Sintomas:</label>
+              <div id="checkboxes-sintomas-cadastro" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto border dark:border-slate-700 rounded-lg p-3 bg-slate-50 dark:bg-slate-900 text-xs"></div>
             </div>
-            <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow transition text-sm mt-2">+ Cadastrar Viatura</button>
+
+            <button type="submit" id="btn-submit-diag" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-3 rounded-lg shadow transition text-sm">Gravar Diagnóstico no Supabase</button>
           </form>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-          <h3 class="text-sm font-black uppercase border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">🧹 Gerenciar Plantão</h3>
-          <button onclick="limparTodasGuarnicoes()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl shadow transition text-xs">Limpar Todas as Guarnições</button>
+        <div class="border-t dark:border-slate-700 pt-4">
+          <h3 class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Diagnósticos no Banco (<span id="count-diagnosticos">0</span>)</h3>
+          <ul id="lista-admin-diagnosticos" class="max-h-64 overflow-y-auto divide-y dark:divide-slate-700 border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></ul>
         </div>
       </div>
 
-      <div class="lg:col-span-8">
-        <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-          <h2 class="text-base font-black uppercase border-b border-slate-100 dark:border-slate-700 pb-3 mb-5">👥 Guarnição do Dia</h2>
-          <div id="lista-cards-viaturas" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
-        </div>
-      </div>
-    </div>
-  </section>
+<!-- 🟣 PERGUNTAS DE TRIAGEM ADMIN -->
+ <div class="md:col-span-12 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+  <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">
+    <h2 class="text-base font-bold">🟣 3. Gerenciar Perguntas de Triagem</h2>
+  </div>
 
-  <!-- ================= ABA 3: BANCO ================= -->
-  <section id="view-cadastros" class="hidden grid grid-cols-1 md:grid-cols-12 gap-6">
-    
-    <!-- Sintomas -->
-    <div class="md:col-span-5 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 h-fit">
-      <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">
-        <h2 id="titulo-form-sintoma" class="text-base font-black uppercase">➕ Sintoma</h2>
-        <button type="button" id="btn-cancelar-sintoma" onclick="cancelarEdicaoSintoma()" class="hidden text-xs text-red-500 font-bold hover:underline">Cancelar Edição</button>
+  <!-- Aba: cadastrar pergunta -->
+   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div>
+      <div class="flex justify-between items-center mb-3">
+        <h3 id="titulo-form-pergunta" class="text-sm font-bold">➕ Nova Pergunta</h3>
+        <button type="button" id="btn-cancelar-pergunta" onclick="cancelarEdicaoPergunta()" class="hidden text-xs text-red-500 hover:underline font-bold">Cancelar</button>
       </div>
-
-      <form id="form-sintoma" onsubmit="salvarSintoma(event)" class="space-y-4">
-        <input type="hidden" id="edit-sintoma-id" value="">
+      <form id="form-pergunta" onsubmit="salvarPergunta(event)" class="space-y-3">
+        <input type="hidden" id="edit-pergunta-id" value="">
         <div>
-          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Categoria</label>
-          <select id="cad-sintoma-cat" required class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-            <option value="CLINICA">Emergência Clínica</option>
-            <option value="TRAUMA">Trauma / Acidente</option>
-            <option value="INCENDIO">Incêndio</option>
-            <option value="SALVAMENTO">Salvamento</option>
-          </select>
+          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Texto da Pergunta</label>
+          <input type="text" id="cad-pergunta-texto" required placeholder="Ex: A vítima está respirando?" list="datalist-perguntas-existentes" autocomplete="off" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+          <datalist id="datalist-perguntas-existentes"></datalist>
         </div>
         <div>
-          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Nome do Sintoma</label>
-          <input type="text" id="cad-sintoma-nome" required placeholder="Ex: Vítima inconsciente" list="datalist-sintomas-existentes" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
+          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Dica para o Operador</label>
+          <input type="text" id="cad-pergunta-dica" placeholder="Ex: Observe o abdômen, aproxime o rosto, ouça" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
         </div>
-        <label class="flex items-center space-x-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 cursor-pointer">
-          <input type="checkbox" id="cad-sintoma-redflag" class="rounded text-red-600">
-          <span class="block text-xs font-black uppercase text-red-700 dark:text-red-400">🚨 Red Flag (Despacho Imediato)</span>
+        <label class="flex items-center space-x-2.5 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 cursor-pointer">
+          <input type="checkbox" id="cad-pergunta-redflag" class="w-4 h-4 text-red-600 rounded">
+          <span class="text-xs font-black uppercase text-red-700 dark:text-red-300">🚨 Red Flag (prioritária)</span>
         </label>
-        <button type="submit" id="btn-submit-sintoma" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow transition text-sm">Gravar Sintoma</button>
+        <button type="submit" id="btn-submit-pergunta" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-2.5 rounded-lg text-sm">Gravar Pergunta no Supabase</button>
       </form>
-
-      <div class="mt-8">
-        <h3 class="text-xs font-bold uppercase text-slate-500 mb-3">Sintomas Cadastrados (<span id="count-sintomas">0</span>)</h3>
-        <ul id="lista-admin-sintomas" class="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700 border border-slate-100 dark:border-slate-700 rounded-xl p-2 text-xs space-y-1"></ul>
-      </div>
     </div>
 
-    <!-- Diagnósticos -->
-    <div class="md:col-span-7 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-8">
-      <div>
-        <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">
-          <h2 id="titulo-form-diag" class="text-base font-black uppercase">🩺 Diagnóstico</h2>
-          <button type="button" id="btn-cancelar-diag" onclick="cancelarEdicaoDiagnostico()" class="hidden text-xs text-red-500 font-bold hover:underline">Cancelar Edição</button>
-        </div>
-
-        <form id="form-diagnostico" onsubmit="salvarDiagnostico(event)" class="space-y-5">
-          <input type="hidden" id="edit-diag-id" value="">
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="sm:col-span-2">
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Título do Diagnóstico</label>
-              <input type="text" id="cad-diag-titulo" required placeholder="Ex: Parada Cardiorrespiratória" list="datalist-diagnosticos-existentes" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm font-bold">
-            </div>
-            <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Criticidade</label>
-              <select id="cad-diag-crit" required class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm font-bold">
-                <option value="CRITICO">🔴 CRÍTICO</option>
-                <option value="GRAVE">🟠 GRAVE</option>
-                <option value="INTERMEDIARIO">🟡 INTERMEDIÁRIO</option>
-                <option value="LEVE">🟢 LEVE</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Descrição Técnica (Opcional)</label>
-            <textarea id="cad-diag-desc" rows="2" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm" placeholder="Detalhes médicos..."></textarea>
-          </div>
-
-          <div class="bg-amber-50 dark:bg-amber-950/30 p-4 rounded-xl border border-amber-200 dark:border-amber-800">
-            <label class="block text-xs font-bold uppercase text-amber-800 dark:text-amber-400 mb-2">🗣️ Dicas para o Operador Falar ao Telefone</label>
-            <textarea id="cad-diag-dicas" required rows="3" class="w-full border border-amber-300 dark:border-amber-700 rounded-lg p-3 text-sm bg-white dark:bg-slate-800" placeholder="Instruções de primeiros socorros..."></textarea>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-3">Vincular a Quais Sintomas?</label>
-            <div id="checkboxes-sintomas-cadastro" class="max-h-60 overflow-y-auto p-1">
-              <!-- Os checkboxes bonitinhos entram aqui via JS + CSS -->
-            </div>
-          </div>
-
-          <button type="submit" id="btn-submit-diag" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow transition text-sm">Gravar Diagnóstico</button>
-        </form>
-      </div>
-
-      <div class="border-t border-slate-100 dark:border-slate-700 pt-6">
-        <h3 class="text-xs font-bold uppercase text-slate-500 mb-3">Diagnósticos Cadastrados (<span id="count-diagnosticos">0</span>)</h3>
-        <ul id="lista-admin-diagnosticos" class="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700 border border-slate-100 dark:border-slate-700 rounded-xl p-2 text-xs space-y-1"></ul>
-      </div>
-    </div>
-
-    <!-- Perguntas e Localidades (Mantidos, mas com visual limpo) -->
-    <div class="md:col-span-12 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-      <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">
-        <h2 class="text-base font-black uppercase">🟣 Perguntas de Triagem</h2>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div>
+      <h3 class="text-sm font-bold mb-3">🔗 Vincular Pergunta a Sintoma</h3>
+      <form onsubmit="vincularPerguntaSintoma(event)" class="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">
         <div>
-          <div class="flex justify-between items-center mb-3">
-            <h3 id="titulo-form-pergunta" class="text-sm font-bold">➕ Nova Pergunta</h3>
-            <button type="button" id="btn-cancelar-pergunta" onclick="cancelarEdicaoPergunta()" class="hidden text-xs text-red-500 font-bold">Cancelar</button>
-          </div>
-          <form id="form-pergunta" onsubmit="salvarPergunta(event)" class="space-y-3">
-            <input type="hidden" id="edit-pergunta-id" value="">
-            <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Pergunta</label>
-              <input type="text" id="cad-pergunta-texto" required placeholder="Ex: A vítima está respirando?" list="datalist-perguntas-existentes" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-            </div>
-            <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Dica para o Operador</label>
-              <input type="text" id="cad-pergunta-dica" placeholder="Ex: Ouça a respiração" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-            </div>
-            <label class="flex items-center space-x-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 cursor-pointer">
-              <input type="checkbox" id="cad-pergunta-redflag" class="rounded text-red-600">
-              <span class="text-xs font-black uppercase text-red-700 dark:text-red-400">🚨 Red Flag</span>
-            </label>
-            <button type="submit" id="btn-submit-pergunta" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition text-sm">Gravar Pergunta</button>
-          </form>
+          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Sintoma</label>
+          <!-- TROCOU SELECT POR INPUT COM AUTOCOMPLETE -->
+          <input type="text" id="vinc-sintoma" autocomplete="off" required placeholder="Digite para buscar o sintoma..." class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
         </div>
-
         <div>
-          <h3 class="text-sm font-bold mb-3">🔗 Vincular a Sintoma</h3>
-          <form onsubmit="vincularPerguntaSintoma(event)" class="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-            <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Sintoma</label>
-              <select id="vinc-sintoma" required class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm"></select>
-            </div>
-            <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Pergunta</label>
-              <select id="vinc-pergunta" required class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm"></select>
-            </div>
-            <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Prioridade (0 = Primeiro)</label>
-              <input type="number" id="vinc-prioridade" value="0" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-            </div>
-            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition text-sm">+ Vincular</button>
-          </form>
+          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Pergunta</label>
+          <!-- TROCOU SELECT POR INPUT COM AUTOCOMPLETE -->
+          <input type="text" id="vinc-pergunta" autocomplete="off" required placeholder="Digite para buscar a pergunta..." class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
         </div>
-      </div>
-
-      <div class="border-t border-slate-100 dark:border-slate-700 pt-6 mt-6">
-        <h3 class="text-xs font-bold uppercase text-slate-500 mb-3">Perguntas no Banco (<span id="count-perguntas">0</span>)</h3>
-        <div id="lista-admin-perguntas" class="max-h-96 overflow-y-auto border border-slate-100 dark:border-slate-700 rounded-xl p-3 text-xs space-y-2"></div>
-      </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Prioridade (menor = primeiro)</label>
+          <input type="number" id="vinc-prioridade" value="0" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+        </div>
+        <button type="submit" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 rounded-lg text-sm">+ Vincular</button>
+      </form>
     </div>
-    
-    <!-- Localidades (Simplificado, sem alterar IDs) -->
-    <div class="md:col-span-12 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-      <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">
-        <h2 class="text-base font-black uppercase">🏙️ Localidades</h2>
-      </div>
-      <div class="flex flex-wrap gap-2 mb-5">
-        <button onclick="trocarTabLocalidade('cidades')" id="tab-loc-cidades" class="text-xs font-bold px-4 py-2 rounded-lg bg-red-600 text-white">Cidades</button>
-        <button onclick="trocarTabLocalidade('bairros')" id="tab-loc-bairros" class="text-xs font-bold px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">Bairros</button>
-        <button onclick="trocarTabLocalidade('ruas')" id="tab-loc-ruas" class="text-xs font-bold px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">Ruas</button>
-      </div>
+  </div>
 
-      <div id="loc-panel-cidades">
-        <form onsubmit="salvarCidade(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
-          <input type="text" id="cad-cidade-nome" required placeholder="Nome da cidade" list="datalist-cad-cidades-nomes" class="sm:col-span-2 border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-          <input type="text" id="cad-cidade-uf" required maxlength="2" placeholder="UF" class="border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm uppercase">
-          <button type="submit" class="bg-red-600 text-white font-bold py-3 rounded-lg text-sm hover:bg-red-700">+ Adicionar</button>
-        </form>
-        <div id="lista-admin-cidades" class="max-h-72 overflow-y-auto border border-slate-100 dark:border-slate-700 rounded-xl p-2 text-xs space-y-1"></div>
-      </div>
 
-      <div id="loc-panel-bairros" class="hidden">
-        <form onsubmit="salvarBairro(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
-          <input type="text" id="cad-bairro-cidade" required placeholder="Digite a cidade..." oninput="popularDatalistsCadastros()" class="border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-          <input type="text" id="cad-bairro-nome" required placeholder="Nome do bairro" list="datalist-cad-bairros-nomes" class="sm:col-span-2 border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-          <button type="submit" class="bg-red-600 text-white font-bold py-3 rounded-lg text-sm hover:bg-red-700">+ Adicionar</button>
-        </form>
-        <div class="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 p-4 rounded-xl mb-4">
-          <label class="block text-xs font-bold uppercase text-emerald-800 mb-2">📥 Importar em Massa (1 por linha)</label>
-          <textarea id="import-bairros-lista" rows="3" placeholder="Centro&#10;Vila Nova" class="w-full border border-emerald-300 rounded-lg p-3 text-sm font-mono mb-2"></textarea>
-          <button type="button" onclick="importarBairrosEmMassa()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg">Importar</button>
-        </div>
-        <div id="lista-admin-bairros" class="max-h-72 overflow-y-auto border border-slate-100 dark:border-slate-700 rounded-xl p-2 text-xs space-y-1"></div>
-      </div>
-
-      <div id="loc-panel-ruas" class="hidden">
-        <form onsubmit="salvarRua(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
-          <input type="text" id="cad-rua-cidade" required oninput="renderizarAdminRuas()" placeholder="Cidade..." class="border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-          <input type="text" id="cad-rua-bairro" required oninput="renderizarAdminRuas()" placeholder="Bairro..." class="border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-          <input type="text" id="cad-rua-nome" required placeholder="Rua..." list="datalist-cad-ruas-nomes" class="border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm">
-          <button type="submit" class="bg-red-600 text-white font-bold py-3 rounded-lg text-sm hover:bg-red-700">+ Adicionar</button>
-        </form>
-        <div class="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 p-4 rounded-xl mb-4">
-          <label class="block text-xs font-bold uppercase text-emerald-800 mb-2">📥 Importar em Massa (1 por linha)</label>
-          <textarea id="import-ruas-lista" rows="3" placeholder="Rua das Flores&#10;Av. Central" class="w-full border border-emerald-300 rounded-lg p-3 text-sm font-mono mb-2"></textarea>
-          <button type="button" onclick="importarRuasEmMassa()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg">Importar</button>
-        </div>
-        <div id="lista-admin-ruas" class="max-h-72 overflow-y-auto border border-slate-100 dark:border-slate-700 rounded-xl p-2 text-xs space-y-1"></div>
-      </div>
-    </div>
-
-  </section>
-</main>
-
-<!-- Barra inferior mobile -->
-<div class="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900 text-white p-3 border-t border-slate-700 flex justify-around z-50 shadow-2xl">
-  <button onclick="copiarRelatorio()" class="flex items-center space-x-2 bg-emerald-600 px-4 py-2.5 rounded-xl text-sm font-bold"><span>📑 Copiar</span></button>
-  <button onclick="document.getElementById('secao-despacho-mobile').scrollIntoView({behavior: 'smooth'})" class="flex items-center space-x-2 bg-red-600 px-4 py-2.5 rounded-xl text-sm font-bold"><span>📲 Ver Ficha</span></button>
+  <!-- Lista de perguntas cadastradas -->
+   <div class="border-t dark:border-slate-700 pt-4 mt-4">
+    <h3 class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Perguntas no Banco (<span id="count-perguntas">0</span>)</h3>
+    <div id="lista-admin-perguntas" class="max-h-96 overflow-y-auto border dark:border-slate-700 rounded-lg p-2 text-xs space-y-2"></div>
+  </div>
 </div>
 
+
+      <!-- 🏙️ LOCALIDADES ADMIN -->
+      <div class="md:col-span-12 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
+          <h2 class="text-base font-bold">🏙️ 4. Gerenciar Localidades (Cidade → Bairro → Rua)</h2>
+          <span class="text-xs text-slate-400">Sincronizado com Supabase</span>
+        </div>
+
+        <div class="flex flex-wrap gap-2 mb-4 border-b dark:border-slate-700 pb-2">
+          <button onclick="trocarTabLocalidade('cidades')" id="tab-loc-cidades" class="text-xs font-bold px-3 py-1.5 rounded bg-red-600 text-white">🏙️ Cidades</button>
+          <button onclick="trocarTabLocalidade('bairros')" id="tab-loc-bairros" class="text-xs font-bold px-3 py-1.5 rounded bg-slate-200 dark:bg-slate-700">🏘️ Bairros</button>
+          <button onclick="trocarTabLocalidade('ruas')" id="tab-loc-ruas" class="text-xs font-bold px-3 py-1.5 rounded bg-slate-200 dark:bg-slate-700">🛣️ Ruas</button>
+        </div>
+
+        <div id="loc-panel-cidades">
+          <form onsubmit="salvarCidade(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+            <input type="text" id="cad-cidade-nome" required placeholder="Nome da cidade" list="datalist-cad-cidades-nomes" autocomplete="off" class="sm:col-span-2 border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <datalist id="datalist-cad-cidades-nomes"></datalist>
+            <input type="text" id="cad-cidade-uf" required maxlength="2" placeholder="UF" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm uppercase">
+            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg text-sm">+ Adicionar</button>
+          </form>
+          <div id="lista-admin-cidades" class="max-h-72 overflow-y-auto border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></div>
+        </div>
+
+        <div id="loc-panel-bairros" class="hidden">
+          <form onsubmit="salvarBairro(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+            <input type="text" id="cad-bairro-cidade" autocomplete="off" required placeholder="Digite a cidade..." oninput="popularDatalistsCadastros()" class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">            <input type="text" id="cad-bairro-nome" required placeholder="Nome do bairro" list="datalist-cad-bairros-nomes" autocomplete="off" class="sm:col-span-2 border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <datalist id="datalist-cad-bairros-nomes"></datalist>
+            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg text-sm">+ Adicionar</button>
+          </form>
+          <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 p-3 rounded-lg mb-3">
+            <label class="block text-xs font-bold uppercase text-emerald-900 dark:text-emerald-300 mb-1">
+              📥 Importar bairros em massa (1 por linha ou separados por <code>;</code>)
+
+            </label>
+            <textarea id="import-bairros-lista" rows="3"
+            placeholder="Centro&#10;Jardim América&#10;Vila Nova&#10;Santa Maria&#10;São José"
+            class="w-full border border-emerald-300 dark:border-emerald-700 rounded-lg p-2 text-xs bg-white dark:bg-slate-800 font-mono"></textarea>
+            <button type="button" onclick="importarBairrosEmMassa()"
+            class="mt-2 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg">
+            📥 Importar para esta cidade
+          </button>
+        </div>
+          <div id="lista-admin-bairros" class="max-h-72 overflow-y-auto border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></div>
+        </div>
+
+        <div id="loc-panel-ruas" class="hidden">
+          <form onsubmit="salvarRua(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+            <input type="text" id="cad-rua-cidade" autocomplete="off" required
+            oninput="renderizarAdminRuas()" placeholder="Digite a cidade..."
+            class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+
+            <input type="text" id="cad-rua-bairro" autocomplete="off" required
+            oninput="renderizarAdminRuas()" placeholder="Digite o bairro..."
+            class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+
+            <input type="text" id="cad-rua-nome" required placeholder="Nome da rua" list="datalist-cad-ruas-nomes" autocomplete="off" 
+            class="border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
+            <datalist id="datalist-cad-ruas-nomes"></datalist>
+            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg text-sm">+ Adicionar</button>
+          </form>
+          <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 p-3 rounded-lg mb-3">
+            <label class="block text-xs font-bold uppercase text-emerald-900 dark:text-emerald-300 mb-1">
+              📥 Importar em massa (1 rua por linha ou separadas por <code>;</code>)
+            </label>
+            <textarea id="import-ruas-lista" rows="3" placeholder="Rua das Flores&#10;Av. Central&#10;Rua São João&#10;&#10;ou: Rua das Flores; Av. Central; Rua São João" class="w-full border border-emerald-300 dark:border-emerald-700 rounded-lg p-2 text-xs bg-white dark:bg-slate-800 font-mono"></textarea>
+            <button type="button" onclick="importarRuasEmMassa()" class="mt-2 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg">📥 Importar para este bairro</button>
+          </div>
+          <div id="lista-admin-ruas" class="max-h-72 overflow-y-auto border dark:border-slate-700 rounded-lg p-2 text-xs space-y-1"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+  <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900 text-white p-2.5 border-t border-slate-700 flex justify-around items-center z-50 no-print shadow-2xl">
+    <button onclick="copiarRelatorio()" class="flex items-center space-x-1 bg-emerald-600 px-3 py-2 rounded-lg text-xs font-bold"><span>📑 Copiar</span></button>
+    <button onclick="enviarGrupoOperacoesConjuntas()" class="flex items-center space-x-1 bg-green-700 px-3 py-2 rounded-lg text-xs font-bold"><span>📢 Grupo Op.</span></button>
+    <button onclick="document.getElementById('secao-despacho-mobile').scrollIntoView({behavior: 'smooth'})" class="flex items-center space-x-1 bg-red-700 px-3 py-2 rounded-lg text-xs font-bold"><span>📲 Ver Ficha / Zap</span></button>
+  </div>
+
+  <!-- SCRIPT EXTERNO DA TRIAGEM -->
+  <script src="./triagem.js"></script>
 </body>
 </html>
