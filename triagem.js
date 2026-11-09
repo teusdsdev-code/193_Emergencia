@@ -1,336 +1,394 @@
-/* ============================================================
-   CBMGO 193 — COB (Triagem e Despacho Rápido)
-   Lógica completa. Carregado com defer após shared.js.
-   ============================================================ */
+    // =========================================================================
+    // 1. SUPABASE + ESTADO GLOBAL
+    // =========================================================================
+    const SUPABASE_URL = 'https://elakajrqhnpgvbeeuope.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_L_Ax840Q1hsGM3xdKHX0rQ_eW_ROare';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// =========================================================================
-// 1. SUPABASE + ESTADO GLOBAL
-// =========================================================================
-const SUPABASE_URL = 'https://elakajrqhnpgvbeeuope.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_L_Ax840Q1hsGM3xdKHX0rQ_eW_ROare';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let bancoSintomas = [];
+    let bancoDiagnosticos = [];
+    let bancoViaturas = [];
+    let guarnicoesMemoria = JSON.parse(localStorage.getItem('cobom_guarnicoes_memoria') || '{}');
 
-let bancoSintomas = [];
-let bancoDiagnosticos = [];
-let bancoViaturas = [];
-let guarnicoesMemoria = JSON.parse(localStorage.getItem('cobom_guarnicoes_memoria') || '{}');
+    let naturezaSelecionada = 'TODAS';
+    let sintomasSelecionadosIds = [];
+    let viaturasEmpenhadasIds = [];
+    let sugestoesAtuais = [];
 
-let naturezaSelecionada = 'TODAS';
-let sintomasSelecionadosIds = [];
-let viaturasEmpenhadasIds = [];
-let sugestoesAtuais = [];
+    let protocoloAtual = null;
+    let timerInicio = null;
+    let timerInterval = null;
 
-let protocoloAtual = null;
-let timerInicio = null;
-let timerInterval = null;
+    // Localidades
+    let bancoCidades = [];
+    let bancoBairrosLocalidades = [];
+    let cacheRuas = {};
+    let usoBairrosLocais = JSON.parse(localStorage.getItem('cobom_bairros_uso') || '{}');
+    // Perguntas de triagem
+    let bancoPerguntas = [];
+    let bancoSintomaPerguntas = [];
+    let bancoPerguntaRespostas = [];
+    let perguntasFeitas = {};   // { perguntaId: true }
 
-// Localidades
-let bancoCidades = [];
-let bancoBairrosLocalidades = [];
-let cacheRuas = {};
-let usoBairrosLocais = JSON.parse(localStorage.getItem('cobom_bairros_uso') || '{}');
+    // =========================================================================
+    // 2. UTILITÁRIOS
+    // =========================================================================
+    let toastSlot = 0;
+    function mostrarToast(msg, tipo = 'info') {
+      const cores = {
+        info:    'bg-slate-800 border-slate-600',
+        sucesso: 'bg-emerald-600 border-emerald-400',
+        erro:    'bg-red-600 border-red-400',
+        aviso:   'bg-amber-500 border-amber-300 text-slate-900'
+      };
+      const slot = toastSlot++ % 4;
+      const toast = document.createElement('div');
+      toast.className = `toast-cobom fixed right-4 z-[100] ${cores[tipo]} text-white px-4 py-3 rounded-lg shadow-2xl font-bold text-sm max-w-xs border-l-4`;
+      toast.style.top = `${80 + slot * 72}px`;
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transition = 'opacity .3s, transform .3s';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(120%)';
+        setTimeout(() => { toast.remove(); toastSlot = Math.max(0, toastSlot - 1); }, 320);
+      }, 2800);
+    }
 
-// Perguntas de triagem
-let bancoPerguntas = [];
-let bancoSintomaPerguntas = [];
-let bancoPerguntaRespostas = [];
-let perguntasFeitas = {};
-let respostasPerguntasAtuais = {}; // <--- ADICIONADO AQUI (Estava faltando)
-
-// =========================================================================
-// 2. UTILITÁRIOS
-// =========================================================================
-function mostrarToast(msg, tipo = 'info') {
-  const map = { info: 'info', sucesso: 'ok', erro: 'err', aviso: 'warn' };
-  if (typeof showToastAc4 === 'function') showToastAc4(msg, map[tipo] || 'info');
-  else console.log(`[${tipo}] ${msg}`);
-}
-
-function formatarTel(tel) {
-  const limpo = (tel || '').replace(/\D/g, '');
-  if (limpo.length === 11) return limpo.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-  if (limpo.length === 10) return limpo.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
-  return tel;
-}
+    function formatarTel(tel) {
+      const limpo = (tel || '').replace(/\D/g, '');
+      if (limpo.length === 11) return limpo.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+      if (limpo.length === 10) return limpo.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+      return tel;
+    }
 
 function removerAcentos(s) {
-  return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 function normalizarTexto(s) {
   return removerAcentos(s).trim().toLowerCase();
 }
 
-function comTimeout(promise, ms = 8000) {
-  return Promise.race([
-    promise,
-    new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout de conexão')), ms))
-  ]);
-}
-
-function gerarProtocolo() {
-  if (protocoloAtual) return protocoloAtual;
-  const d = new Date();
-  const dataKey = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-  const seq = String((parseInt(localStorage.getItem('cobom_seq_' + dataKey) || '0') + 1)).padStart(3, '0');
-  localStorage.setItem('cobom_seq_' + dataKey, seq);
-  protocoloAtual = `193-${dataKey}-${seq}`;
-  const el = document.getElementById('rel-protocolo');
-  if (el) el.textContent = protocoloAtual;
-  return protocoloAtual;
-}
-
-function iniciarTimer() {
-  if (timerInicio) return;
-  timerInicio = Date.now();
-  const el = document.getElementById('timer-triagem');
-  if (el) el.classList.remove('hidden');
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    const el2 = document.getElementById('timer-triagem');
-    if (!el2 || !timerInicio) return;
-    const seg = Math.floor((Date.now() - timerInicio) / 1000);
-    const m = String(Math.floor(seg / 60)).padStart(2, '0');
-    const s = String(seg % 60).padStart(2, '0');
-    el2.textContent = `⏱️ ${m}:${s}`;
-  }, 1000);
-}
-
-function pararTimer() {
-  timerInicio = null;
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = null;
-  const el = document.getElementById('timer-triagem');
-  if (el) { el.classList.add('hidden'); el.textContent = ''; }
-}
-
-function limparChavesProtocoloAntigas() {
-  const hoje = new Date();
-  const hojeStr = `${hoje.getFullYear()}${String(hoje.getMonth()+1).padStart(2,'0')}${String(hoje.getDate()).padStart(2,'0')}`;
-  Object.keys(localStorage)
-    .filter(k => /^cobom_seq_\d{8}$/.test(k))
-    .forEach(k => {
-      const data = k.replace('cobom_seq_', '');
-      if (data < hojeStr) localStorage.removeItem(k);
-    });
-}
-
-// =========================================================================
-// 3. INICIALIZAÇÃO
-// =========================================================================
-window.addEventListener('DOMContentLoaded', async () => {
-  limparChavesProtocoloAntigas();
-  inicializarAutocompletes();
-
-  const elData = document.getElementById('rel-datahora');
-  if (elData) elData.innerText = new Date().toLocaleString('pt-BR');
-
-  restaurarEstadoPainelEstruturado();
-
-  await sincronizarComSupabase(false);
-  await sincronizarLocalidades();
-  await sincronizarPerguntas();
-  cancelarEdicaoPergunta();
-  atualizarRelatorio();
-
-  document.addEventListener('click', (e) => {
-    const box = document.getElementById('input-busca-sintoma');
-    const drop = document.getElementById('dropdown-sugestoes');
-    if (box && drop && !box.contains(e.target) && !drop.contains(e.target)) {
-      drop.classList.add('hidden');
+    function comTimeout(promise, ms = 8000) {
+      return Promise.race([
+        promise,
+        new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout de conexão')), ms))
+      ]);
     }
-  });
 
-  document.addEventListener('keydown', (e) => {
-    const tag = document.activeElement?.tagName;
-    const editando = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-    if (e.key === 'F1') { e.preventDefault(); alternarAba('triagem'); }
-    if (e.key === 'F2' && !editando) { e.preventDefault(); copiarRelatorio(); }
-    if (e.key === 'F4' && !editando) { e.preventDefault(); limparChamado(); }
-  });
+    function gerarProtocolo() {
+      if (protocoloAtual) return protocoloAtual;
+      const d = new Date();
+      const dataKey = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      const seq = String((parseInt(localStorage.getItem('cobom_seq_' + dataKey) || '0') + 1)).padStart(3, '0');
+      localStorage.setItem('cobom_seq_' + dataKey, seq);
+      protocoloAtual = `193-${dataKey}-${seq}`;
+      const el = document.getElementById('rel-protocolo');
+      if (el) el.textContent = protocoloAtual;
+      return protocoloAtual;
+    }
 
-  document.getElementById('input-busca-sintoma')?.focus();
+    function iniciarTimer() {
+      if (timerInicio) return;
+      timerInicio = Date.now();
+      const el = document.getElementById('timer-triagem');
+      if (el) el.classList.remove('hidden');
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        const el2 = document.getElementById('timer-triagem');
+        if (!el2 || !timerInicio) return;
+        const seg = Math.floor((Date.now() - timerInicio) / 1000);
+        const m = String(Math.floor(seg / 60)).padStart(2, '0');
+        const s = String(seg % 60).padStart(2, '0');
+        el2.textContent = `⏱️ ${m}:${s}`;
+      }, 1000);
+    }
 
-  // Aviso ao sair com chamado em andamento
-  let navegandoInterno = false;
-  document.querySelectorAll('a[href$=".html"]').forEach(a => {
-    a.addEventListener('click', () => { navegandoInterno = true; });
-  });
-  window.addEventListener('beforeunload', (e) => {
-    if (navegandoInterno) return;
-    const emAndamento = sintomasSelecionadosIds.length > 0 ||
-      (document.getElementById('solicitante-end')?.value || '').trim() ||
-      viaturasEmpenhadasIds.length > 0;
-    if (emAndamento) { e.preventDefault(); e.returnValue = ''; }
-  });
+    function pararTimer() {
+      timerInicio = null;
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = null;
+      const el = document.getElementById('timer-triagem');
+      if (el) { el.classList.add('hidden'); el.textContent = ''; }
+    }
 
-  // Sync entre abas
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'cbmgo193.theme') { /* shared.js cuida */ }
-    if (e.key === 'cobom_guarnicoes_memoria') {
-      guarnicoesMemoria = JSON.parse(e.newValue || '{}');
+    function limparChavesProtocoloAntigas() {
+      const hoje = new Date();
+      const hojeStr = `${hoje.getFullYear()}${String(hoje.getMonth()+1).padStart(2,'0')}${String(hoje.getDate()).padStart(2,'0')}`;
+      Object.keys(localStorage)
+        .filter(k => /^cobom_seq_\d{8}$/.test(k))
+        .forEach(k => {
+          const data = k.replace('cobom_seq_', '');
+          if (data < hojeStr) localStorage.removeItem(k);
+        });
+    }
+
+    // =========================================================================
+    // 2.B TEMA
+    // =========================================================================
+    function atualizarIconeTema() {
+      const icon = document.getElementById('icone-tema');
+      if (!icon) return;
+      icon.textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+    }
+    function alternarTema() {
+      const html = document.documentElement;
+      html.classList.toggle('dark');
+      const modo = html.classList.contains('dark') ? 'dark' : 'light';
+      try { localStorage.setItem('cbmgo193.theme', modo); } catch(_){}
+      atualizarIconeTema();
+    }
+
+    // =========================================================================
+    // 2.C PWA — consolidado
+    // =========================================================================
+    function initPWA() {
+      const installBtn = document.getElementById('installBtnTriagem');
+      if (!installBtn) return;
+
+      const isStandalone = () =>
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
+
+      const updateUI = () => { installBtn.hidden = isStandalone(); };
+      updateUI();
+
+      let deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        updateUI();
+      });
+      window.addEventListener('appinstalled', () => {
+        deferredPrompt = null;
+        updateUI();
+        mostrarToast('Aplicativo instalado! ✅', 'sucesso');
+      });
+
+      installBtn.addEventListener('click', async () => {
+        if (isStandalone()) return;
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          try { await deferredPrompt.userChoice; } catch(_){}
+          deferredPrompt = null;
+          updateUI();
+          return;
+        }
+        alert(
+          'Como instalar:\n\n' +
+          '• iPhone/iPad (Safari): Compartilhar  →  Adicionar à Tela de Início.\n' +
+          '• Android (Chrome): menu ⋮  →  Instalar app / Adicionar à tela inicial.\n' +
+          '• Desktop (Chrome/Edge): ícone de instalação na barra de endereços.'
+        );
+      });
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    }
+
+    // =========================================================================
+    // 3. INICIALIZAÇÃO
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', async () => {
+      atualizarIconeTema();
+      initPWA();
+      limparChavesProtocoloAntigas();
+      inicializarAutocompletes();
+
+      document.getElementById('rel-datahora').innerText = new Date().toLocaleString('pt-BR');
+
+      restaurarEstadoPainelEstruturado();
+
+      await sincronizarComSupabase(false);
+      await sincronizarLocalidades();
+      await sincronizarPerguntas();
+      cancelarEdicaoPergunta();
+      atualizarRelatorio();
+
+      document.addEventListener('click', (e) => {
+        const box = document.getElementById('input-busca-sintoma');
+        const drop = document.getElementById('dropdown-sugestoes');
+        if (box && drop && !box.contains(e.target) && !drop.contains(e.target)) {
+          drop.classList.add('hidden');
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        const tag = document.activeElement?.tagName;
+        const editando = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+        if (e.key === 'F1') { e.preventDefault(); alternarAba('triagem'); }
+        if (e.key === 'F2' && !editando) { e.preventDefault(); copiarRelatorio(); }
+        if (e.key === 'F4' && !editando) { e.preventDefault(); limparChamado(); }
+      });
+
+      // Auto-foco no campo de sintomas
+      document.getElementById('input-busca-sintoma')?.focus();
+
+      // Aviso ao sair com chamado em andamento
+      window.addEventListener('beforeunload', (e) => {
+        const emAndamento =
+          sintomasSelecionadosIds.length > 0 ||
+          document.getElementById('solicitante-end').value.trim() ||
+          viaturasEmpenhadasIds.length > 0;
+        if (emAndamento) { e.preventDefault(); e.returnValue = ''; }
+      });
+
+      // Sync entre abas
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'cbmgo193.theme') atualizarIconeTema();
+        if (e.key === 'cobom_guarnicoes_memoria') {
+          guarnicoesMemoria = JSON.parse(e.newValue || '{}');
+          renderizarViaturasEGuarnicao();
+          renderizarSelecaoViaturasTriagem();
+          atualizarRelatorio();
+        }
+      });
+    });
+
+    // =========================================================================
+    // 4. SYNC
+    // =========================================================================
+    async function sincronizarComSupabase(mostrarAlerta = false) {
+      const badge = document.getElementById('status-conexao');
+      const infoCache = document.getElementById('info-cache');
+
+      try {
+        badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-slate-900";
+        badge.innerText = "🔄 Sincronizando...";
+
+        const [resSintomas, resDiagnosticos, resViaturas] = await Promise.all([
+          comTimeout(supabaseClient.from('sintomas').select('*').order('nome')),
+          comTimeout(supabaseClient.from('diagnosticos').select('*, diagnostico_sintomas(sintoma_id)').order('titulo')),
+          comTimeout(supabaseClient.from('viaturas').select('*').order('unidade').order('prefixo'))
+        ]);
+
+        const houveErro = resSintomas.error || resDiagnosticos.error || resViaturas.error;
+
+        if (resSintomas.error)     console.warn('sintomas:', resSintomas.error.message);
+        if (resDiagnosticos.error) console.warn('diagnosticos:', resDiagnosticos.error.message);
+        if (resViaturas.error)     console.warn('viaturas:', resViaturas.error.message);
+
+        if (houveErro) {
+          carregarDoCacheLocal('Cache (falha parcial)');
+          badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-slate-900";
+          badge.innerText = "🟡 Offline (cache)";
+          if (mostrarAlerta) mostrarToast('Sync com falha. Usando cache local.', 'aviso');
+          return;
+        }
+
+        bancoSintomas = (resSintomas.data || []).sort((a, b) => (b.red_flag ? 1 : 0) - (a.red_flag ? 1 : 0));
+        bancoDiagnosticos = (resDiagnosticos.data || []).map(d => ({
+          ...d,
+          sintomas_ids: (d.diagnostico_sintomas || []).map(ds => ds.sintoma_id)
+        }));
+        bancoViaturas = resViaturas.data || [];
+
+        localStorage.setItem('cobom_cache_sintomas', JSON.stringify(bancoSintomas));
+        localStorage.setItem('cobom_cache_diagnosticos', JSON.stringify(bancoDiagnosticos));
+        localStorage.setItem('cobom_cache_viaturas', JSON.stringify(bancoViaturas));
+
+        const agora = new Date().toLocaleString('pt-BR');
+        localStorage.setItem('cobom_cache_data', agora);
+
+        badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white";
+        badge.innerText = `🟢 Online (${bancoSintomas.length} sint. / ${bancoDiagnosticos.length} diag.)`;
+        infoCache.innerText = `Sincronizado: ${agora}`;
+        document.getElementById('badge-total-banco').innerText = bancoSintomas.length;
+
+        const antes = sintomasSelecionadosIds.length;
+        sintomasSelecionadosIds = sintomasSelecionadosIds.filter(id => bancoSintomas.some(s => s.id === id));
+        if (antes !== sintomasSelecionadosIds.length) {
+          mostrarToast('Alguns sintomas selecionados foram removidos do banco.', 'aviso');
+        }
+        viaturasEmpenhadasIds = viaturasEmpenhadasIds.filter(id => bancoViaturas.some(v => v.id === id));
+
+        renderizarTudo();
+        await sincronizarPerguntas();
+        if (mostrarAlerta) mostrarToast(`Sincronizado! ${bancoSintomas.length} sintomas, ${bancoDiagnosticos.length} diagnósticos, ${bancoViaturas.length} viaturas.`, 'sucesso');
+      } catch (err) {
+        console.error(err);
+        carregarDoCacheLocal('Modo Offline (Cache)');
+        badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white";
+        badge.innerText = "🔴 Offline (cache)";
+        if (mostrarAlerta) mostrarToast(err.message || 'Sem conexão. Usando cache local.', 'erro');
+      }
+    }
+
+    function carregarDoCacheLocal(motivo) {
+      bancoSintomas = JSON.parse(localStorage.getItem('cobom_cache_sintomas') || '[]');
+      bancoDiagnosticos = JSON.parse(localStorage.getItem('cobom_cache_diagnosticos') || '[]');
+      bancoViaturas = JSON.parse(localStorage.getItem('cobom_cache_viaturas') || '[]');
+      document.getElementById('badge-total-banco').innerText = bancoSintomas.length;
+      const infoCache = document.getElementById('info-cache');
+      if (infoCache) infoCache.innerText = motivo || 'Cache local';
+      renderizarTudo();
+      sincronizarPerguntas();   // ← ADICIONAR (cai no cache próprio dela em caso de falha)
+    }
+
+    function renderizarTudo() {
+      renderizarAdmin();
       renderizarViaturasEGuarnicao();
       renderizarSelecaoViaturasTriagem();
+      renderizarTagsSintomas();
+      processarTriagem();
+    }
+
+    // =========================================================================
+    // 5. VOZ
+    // =========================================================================
+    function ditarPorVoz(inputId, btnElement) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return mostrarToast('Navegador não suporta reconhecimento de voz.', 'erro');
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'pt-BR';
+      recognition.interimResults = false;
+
+      const originalText = btnElement.innerHTML;
+      btnElement.innerHTML = '🔴 Ouvindo...';
+      btnElement.classList.add('animate-pulse');
+
+      recognition.onresult = (event) => {
+        const transcricao = event.results[0][0].transcript;
+        const campo = document.getElementById(inputId);
+        campo.value = campo.value ? `${campo.value}, ${transcricao}` : transcricao;
+        atualizarRelatorio();
+      };
+
+      recognition.onend = () => { btnElement.innerHTML = originalText; btnElement.classList.remove('animate-pulse'); };
+      recognition.onerror = () => { btnElement.innerHTML = originalText; btnElement.classList.remove('animate-pulse'); };
+      recognition.start();
+    }
+
+    // =========================================================================
+    // 6. AUTOCOMPLETE + NATUREZA
+    // =========================================================================
+    function selecionarNaturezaRapida(cat) {
+      naturezaSelecionada = cat;
+      ['TODAS', 'CLINICA', 'TRAUMA', 'INCENDIO', 'SALVAMENTO'].forEach(c => {
+        const btn = document.getElementById(`btn-nat-${c}`);
+        if (!btn) return;
+        if (c === cat) {
+          btn.className = "btn-natureza py-2 px-2 rounded-lg text-xs font-black bg-red-600 text-white shadow";
+        } else {
+          btn.className = "btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200";
+        }
+      });
+      filtrarSugestoesSintomas();
+      processarTriagem();   // ★ CORREÇÃO: re-renderiza hipóteses
       atualizarRelatorio();
     }
-  });
-});
 
-// =========================================================================
-// 4. SYNC
-// =========================================================================
-async function sincronizarComSupabase(mostrarAlerta = false) {
-  const badge = document.getElementById('status-conexao');
-  const infoCache = document.getElementById('info-cache');
-
-  try {
-    if (badge) {
-      badge.className = "text-[10px] font-bold px-2 py-1 rounded-full bg-amber-500 text-slate-900";
-      badge.innerText = "🔄 Sincronizando...";
+    function mostrarListaSugestoes() {
+      filtrarSugestoesSintomas();
+      document.getElementById('dropdown-sugestoes').classList.remove('hidden');
     }
-
-    const [resSintomas, resDiagnosticos, resViaturas] = await Promise.all([
-      comTimeout(supabaseClient.from('sintomas').select('*').order('nome')),
-      comTimeout(supabaseClient.from('diagnosticos').select('*, diagnostico_sintomas(sintoma_id)').order('titulo')),
-      comTimeout(supabaseClient.from('viaturas').select('*').order('unidade').order('prefixo'))
-    ]);
-
-    const houveErro = resSintomas.error || resDiagnosticos.error || resViaturas.error;
-
-    if (houveErro) {
-      carregarDoCacheLocal('Cache (falha parcial)');
-      if (badge) {
-        badge.className = "text-[10px] font-bold px-2 py-1 rounded-full bg-amber-500 text-slate-900";
-        badge.innerText = "🟡 Offline (cache)";
-      }
-      if (mostrarAlerta) mostrarToast('Sync com falha. Usando cache local.', 'aviso');
-      return;
-    }
-
-    bancoSintomas = (resSintomas.data || []).sort((a, b) => (b.red_flag ? 1 : 0) - (a.red_flag ? 1 : 0));
-    bancoDiagnosticos = (resDiagnosticos.data || []).map(d => ({
-      ...d,
-      sintomas_ids: (d.diagnostico_sintomas || []).map(ds => ds.sintoma_id)
-    }));
-    bancoViaturas = resViaturas.data || [];
-
-    localStorage.setItem('cobom_cache_sintomas', JSON.stringify(bancoSintomas));
-    localStorage.setItem('cobom_cache_diagnosticos', JSON.stringify(bancoDiagnosticos));
-    localStorage.setItem('cobom_cache_viaturas', JSON.stringify(bancoViaturas));
-
-    const agora = new Date().toLocaleString('pt-BR');
-    localStorage.setItem('cobom_cache_data', agora);
-
-    if (badge) {
-      badge.className = "text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500 text-white";
-      badge.innerText = `🟢 Online (${bancoSintomas.length} sintomas)`;
-    }
-    if (infoCache) infoCache.innerText = `Sincronizado: ${agora}`;
-    const badgeTotal = document.getElementById('badge-total-banco');
-    if (badgeTotal) badgeTotal.innerText = bancoSintomas.length;
-
-    const antes = sintomasSelecionadosIds.length;
-    sintomasSelecionadosIds = sintomasSelecionadosIds.filter(id => bancoSintomas.some(s => s.id === id));
-    if (antes !== sintomasSelecionadosIds.length) {
-      mostrarToast('Alguns sintomas selecionados foram removidos do banco.', 'aviso');
-    }
-    viaturasEmpenhadasIds = viaturasEmpenhadasIds.filter(id => bancoViaturas.some(v => v.id === id));
-
-    renderizarTudo();
-    await sincronizarPerguntas();
-    if (mostrarAlerta) mostrarToast(`Sincronizado!`, 'sucesso');
-  } catch (err) {
-    console.error(err);
-    carregarDoCacheLocal('Modo Offline (Cache)');
-    if (badge) {
-      badge.className = "text-[10px] font-bold px-2 py-1 rounded-full bg-red-500 text-white";
-      badge.innerText = "🔴 Offline (cache)";
-    }
-    if (mostrarAlerta) mostrarToast(err.message || 'Sem conexão. Usando cache local.', 'erro');
-  }
-}
-
-function carregarDoCacheLocal(motivo) {
-  bancoSintomas = JSON.parse(localStorage.getItem('cobom_cache_sintomas') || '[]');
-  bancoDiagnosticos = JSON.parse(localStorage.getItem('cobom_cache_diagnosticos') || '[]');
-  bancoViaturas = JSON.parse(localStorage.getItem('cobom_cache_viaturas') || '[]');
-
-  const badgeTotal = document.getElementById('badge-total-banco');
-  if (badgeTotal) badgeTotal.innerText = bancoSintomas.length;
-
-  const infoCache = document.getElementById('info-cache');
-  if (infoCache) infoCache.innerText = motivo || 'Cache local';
-
-  renderizarTudo();
-  sincronizarPerguntas();
-}
-
-function renderizarTudo() {
-  renderizarAdmin();
-  renderizarViaturasEGuarnicao();
-  renderizarSelecaoViaturasTriagem();
-  renderizarTagsSintomas();
-  processarTriagem();
-}
-
-// =========================================================================
-// 5. VOZ
-// =========================================================================
-function ditarPorVoz(inputId, btnElement) {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return mostrarToast('Navegador não suporta reconhecimento de voz.', 'erro');
-
-  const recognition = new SpeechRecognition();
-  recognition.lang = 'pt-BR';
-  recognition.interimResults = false;
-
-  const originalText = btnElement.innerHTML;
-  btnElement.innerHTML = '🔴 Ouvindo...';
-  btnElement.classList.add('animate-pulse');
-
-  recognition.onresult = (event) => {
-    const transcricao = event.results[0][0].transcript;
-    const campo = document.getElementById(inputId);
-    if (!campo) return;
-    campo.value = campo.value ? `${campo.value}, ${transcricao}` : transcricao;
-    atualizarRelatorio();
-  };
-
-  recognition.onend = () => { btnElement.innerHTML = originalText; btnElement.classList.remove('animate-pulse'); };
-  recognition.onerror = () => { btnElement.innerHTML = originalText; btnElement.classList.remove('animate-pulse'); };
-  recognition.start();
-}
-
-// =========================================================================
-// 6. AUTOCOMPLETE + NATUREZA
-// =========================================================================
-function selecionarNaturezaRapida(cat) {
-  naturezaSelecionada = cat;
-  ['TODAS', 'CLINICA', 'TRAUMA', 'INCENDIO', 'SALVAMENTO'].forEach(c => {
-    const btn = document.getElementById(`btn-nat-${c}`);
-    if (!btn) return;
-    if (c === cat) {
-      btn.className = "btn-natureza py-2 px-2 rounded-lg text-xs font-black bg-red-600 text-white shadow";
-    } else {
-      btn.className = "btn-natureza py-2 px-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200";
-    }
-  });
-  filtrarSugestoesSintomas();
-  processarTriagem();
-  atualizarRelatorio();
-}
-
-function mostrarListaSugestoes() {
-  filtrarSugestoesSintomas();
-  document.getElementById('dropdown-sugestoes')?.classList.remove('hidden');
-}
 
 function filtrarSugestoesSintomas() {
-  const input = document.getElementById('input-busca-sintoma');
-  const dropdown = document.getElementById('dropdown-sugestoes');
-  if (!input || !dropdown) return;
-
-  const termoOriginal = (input.value || '').trim();
+  const termoOriginal = (document.getElementById('input-busca-sintoma').value || '').trim();
   const termo = normalizarTexto(termoOriginal);
+  const dropdown = document.getElementById('dropdown-sugestoes');
 
   sugestoesAtuais = bancoSintomas.filter(s => {
     const bateCat = naturezaSelecionada === 'TODAS' || s.categoria === naturezaSelecionada;
@@ -373,183 +431,180 @@ function filtrarSugestoesSintomas() {
   dropdown.classList.remove('hidden');
 }
 
-function irParaCadastroDeSintoma(nome, categoria) {
-  document.getElementById('dropdown-sugestoes')?.classList.add('hidden');
-  alternarAba('cadastros');
-  const catSelect = document.getElementById('cad-sintoma-cat');
-  if (catSelect) catSelect.value = categoria;
-  const nomeInput = document.getElementById('cad-sintoma-nome');
-  if (nomeInput) {
-    nomeInput.value = nome.charAt(0).toUpperCase() + nome.slice(1);
-    nomeInput.focus();
-  }
-  mostrarToast('Preencha o sintoma e clique em "Gravar".', 'info');
-}
-
-function atalhoEnterSintoma(e) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    if (sugestoesAtuais.length > 0) adicionarSintomaTag(sugestoesAtuais[0].id);
-  }
-}
-
-function adicionarSintomaTag(id) {
-  if (!sintomasSelecionadosIds.includes(id)) sintomasSelecionadosIds.push(id);
-  iniciarTimer();
-  if (!protocoloAtual) gerarProtocolo();
-  const input = document.getElementById('input-busca-sintoma');
-  if (input) { input.value = ''; input.focus(); }
-  filtrarSugestoesSintomas();
-  renderizarTagsSintomas();
-  processarTriagem();
-  renderizarPerguntasTriagem();
-}
-
-function removerSintomaTag(id) {
-  sintomasSelecionadosIds = sintomasSelecionadosIds.filter(item => item !== id);
-  renderizarTagsSintomas();
-  filtrarSugestoesSintomas();
-  processarTriagem();
-  if (sintomasSelecionadosIds.length === 0) pararTimer();
-  renderizarPerguntasTriagem();
-}
-
-function renderizarTagsSintomas() {
-  const container = document.getElementById('tags-sintomas-selecionados');
-  if (!container) return;
-  if (sintomasSelecionadosIds.length === 0) {
-    container.innerHTML = `<span class="text-xs text-slate-400 italic self-center">Nenhum sintoma adicionado ainda.</span>`;
-    return;
-  }
-  container.innerHTML = sintomasSelecionadosIds.map(id => {
-    const sint = bancoSintomas.find(s => s.id === id);
-    if (!sint) return '';
-    const estilo = sint.red_flag ? 'bg-red-700 ring-2 ring-amber-400 text-white' : 'bg-slate-700 text-white';
-    return `
-      <span class="inline-flex items-center space-x-2 ${estilo} text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
-        <span>${sint.red_flag ? '🚨 ' : ''}[${sint.categoria}] ${sint.nome}</span>
-        <button onclick="removerSintomaTag('${sint.id}')" class="hover:text-red-200 font-black">✕</button>
-      </span>
-    `;
-  }).join('');
-}
-
-function setIdadeRapida(valor) {
-  const el = document.getElementById('vitima-idade');
-  if (el) el.value = valor;
-  atualizarRelatorio();
-}
-
-function alterarQtdVitimas(delta) {
-  const input = document.getElementById('vitima-qtd');
-  if (!input) return;
-  const novo = Math.max(1, (parseInt(input.value) || 1) + delta);
-  input.value = novo;
-  atualizarRelatorio();
-}
-
-// =========================================================================
-// 7. MOTOR DE DIAGNÓSTICOS
-// =========================================================================
-function processarTriagem() {
-  const containerDiag = document.getElementById('resultados-diagnosticos');
-  const alertaRedFlag = document.getElementById('alerta-red-flag');
-  const textoRedFlag = document.getElementById('texto-red-flag');
-  if (!containerDiag) return;
-
-  const objetosSintomas = sintomasSelecionadosIds.map(id => bancoSintomas.find(s => s.id === id)).filter(Boolean);
-  const redFlagsAtivos = objetosSintomas.filter(s => s.red_flag);
-
-  if (alertaRedFlag && textoRedFlag) {
-    if (redFlagsAtivos.length > 0) {
-      alertaRedFlag.classList.remove('hidden');
-      textoRedFlag.innerText = `Sintoma(s) crítico(s): ${redFlagsAtivos.map(r => r.nome).join(', ')}`;
-    } else {
-      alertaRedFlag.classList.add('hidden');
+    function irParaCadastroDeSintoma(nome, categoria) {
+      document.getElementById('dropdown-sugestoes').classList.add('hidden');
+      alternarAba('cadastros');
+      const catSelect = document.getElementById('cad-sintoma-cat');
+      if (catSelect) catSelect.value = categoria;
+      const nomeInput = document.getElementById('cad-sintoma-nome');
+      if (nomeInput) {
+        nomeInput.value = nome.charAt(0).toUpperCase() + nome.slice(1);
+        nomeInput.focus();
+      }
+      mostrarToast('Preencha o sintoma e clique em "Gravar".', 'info');
     }
-  }
 
-  const bannerFiltro = naturezaSelecionada !== 'TODAS'
-    ? `<div class="mb-2 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-900/60 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-between">
-         <span>🔎 Filtrando: <strong class="text-red-600 dark:text-red-400">${naturezaSelecionada}</strong></span>
-         <button onclick="selecionarNaturezaRapida('TODAS')" class="text-red-600 dark:text-red-400 hover:underline">Mostrar todas</button>
-       </div>`
-    : '';
+    function atalhoEnterSintoma(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (sugestoesAtuais.length > 0) adicionarSintomaTag(sugestoesAtuais[0].id);
+      }
+    }
 
-  if (sintomasSelecionadosIds.length === 0) {
-    containerDiag.innerHTML = bannerFiltro + '<p class="text-sm text-slate-400 italic">Selecione os sintomas no passo 1 para gerar o diagnóstico...</p>';
-    atualizarRelatorio([], []);
-    return;
-  }
+    function adicionarSintomaTag(id) {
+      if (!sintomasSelecionadosIds.includes(id)) sintomasSelecionadosIds.push(id);
+      iniciarTimer();
+      if (!protocoloAtual) gerarProtocolo();
+      const input = document.getElementById('input-busca-sintoma');
+      input.value = '';
+      input.focus();
+      filtrarSugestoesSintomas();
+      renderizarTagsSintomas();
+      processarTriagem();
+      renderizarPerguntasTriagem();
+    }
 
-  const pesosCriticidade = { 'CRITICO': 4, 'GRAVE': 3, 'INTERMEDIARIO': 2, 'LEVE': 1 };
+    function removerSintomaTag(id) {
+      sintomasSelecionadosIds = sintomasSelecionadosIds.filter(item => item !== id);
+      renderizarTagsSintomas();
+      filtrarSugestoesSintomas();
+      processarTriagem();
+      if (sintomasSelecionadosIds.length === 0) pararTimer();
+      renderizarPerguntasTriagem();
+    }
 
-  const idsSintomasDaNatureza = naturezaSelecionada === 'TODAS'
-    ? null
-    : new Set(bancoSintomas.filter(s => s.categoria === naturezaSelecionada).map(s => s.id));
+    function renderizarTagsSintomas() {
+      const container = document.getElementById('tags-sintomas-selecionados');
+      if (!container) return;
+      if (sintomasSelecionadosIds.length === 0) {
+        container.innerHTML = `<span class="text-xs text-slate-400 italic self-center">Nenhum sintoma adicionado ainda.</span>`;
+        return;
+      }
+      container.innerHTML = sintomasSelecionadosIds.map(id => {
+        const sint = bancoSintomas.find(s => s.id === id);
+        if (!sint) return '';
+        const estilo = sint.red_flag ? 'bg-red-700 ring-2 ring-amber-400 text-white' : 'bg-slate-700 text-white';
+        return `
+          <span class="inline-flex items-center space-x-2 ${estilo} text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
+            <span>${sint.red_flag ? '🚨 ' : ''}[${sint.categoria}] ${sint.nome}</span>
+            <button onclick="removerSintomaTag('${sint.id}')" class="hover:text-red-200 font-black">✕</button>
+          </span>
+        `;
+      }).join('');
+    }
 
-  const diagnosticosEncontrados = bancoDiagnosticos
-    .map(diag => {
-      const sintomasEmComum = sintomasSelecionadosIds.filter(id => diag.sintomas_ids.includes(id));
-      const temRedFlagVinculado = redFlagsAtivos.some(rf => diag.sintomas_ids.includes(rf.id));
-      const bateNatureza = !idsSintomasDaNatureza
-        || diag.sintomas_ids.some(id => idsSintomasDaNatureza.has(id));
-      return {
-        ...diag,
-        matches: sintomasEmComum.length,
-        temRedFlagVinculado,
-        bateNatureza,
-        bateuTodosInformados: sintomasEmComum.length === sintomasSelecionadosIds.length
-      };
-    })
-    .filter(d => d.matches > 0 && d.bateNatureza)
-    .sort((a, b) => {
-      if (b.temRedFlagVinculado !== a.temRedFlagVinculado) return b.temRedFlagVinculado ? 1 : -1;
-      if (b.matches !== a.matches) return b.matches - a.matches;
-      return pesosCriticidade[b.criticidade] - pesosCriticidade[a.criticidade];
-    });
+    function setIdadeRapida(valor) {
+      document.getElementById('vitima-idade').value = valor;
+      atualizarRelatorio();
+    }
 
-  if (diagnosticosEncontrados.length === 0) {
-    containerDiag.innerHTML = bannerFiltro + `
-      <p class="text-xs text-amber-500 font-semibold">
-        Nenhum diagnóstico vinculado a estes sintomas
-        ${naturezaSelecionada !== 'TODAS' ? `na natureza <strong>${naturezaSelecionada}</strong>` : ''}.
-        ${naturezaSelecionada !== 'TODAS' ? 'Tente <button onclick="selecionarNaturezaRapida(\'TODAS\')" class="underline font-bold">mostrar todas as naturezas</button>.' : 'Verifique o cadastro no banco.'}
-      </p>`;
-  } else {
-    containerDiag.innerHTML = bannerFiltro + diagnosticosEncontrados.map(d => {
-      const badgeColors = {
-        'CRITICO': 'bg-red-600 text-white',
-        'GRAVE': 'bg-orange-500 text-white',
-        'INTERMEDIARIO': 'bg-amber-400 text-slate-900',
-        'LEVE': 'bg-emerald-500 text-white'
-      };
-      return `
-        <div class="border-l-4 ${d.temRedFlagVinculado || d.bateuTodosInformados ? 'border-red-600 bg-red-50/40 dark:bg-red-950/30' : 'border-slate-400'} p-3.5 rounded-lg border dark:border-slate-700 space-y-2">
-          <div class="flex justify-between items-start gap-2">
-            <div>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded ${badgeColors[d.criticidade]}">${d.criticidade}</span>
-              <h3 class="font-bold text-sm md:text-base mt-1">${d.titulo}</h3>
+    function alterarQtdVitimas(delta) {
+      const input = document.getElementById('vitima-qtd');
+      const novo = Math.max(1, (parseInt(input.value) || 1) + delta);
+      input.value = novo;
+      atualizarRelatorio();
+    }
+
+    // =========================================================================
+    // 7. MOTOR DE DIAGNÓSTICOS (com filtro por natureza)
+    // =========================================================================
+    function processarTriagem() {
+      const containerDiag = document.getElementById('resultados-diagnosticos');
+      const alertaRedFlag = document.getElementById('alerta-red-flag');
+      const textoRedFlag = document.getElementById('texto-red-flag');
+
+      const objetosSintomas = sintomasSelecionadosIds.map(id => bancoSintomas.find(s => s.id === id)).filter(Boolean);
+      const redFlagsAtivos = objetosSintomas.filter(s => s.red_flag);
+
+      if (redFlagsAtivos.length > 0) {
+        alertaRedFlag.classList.remove('hidden');
+        textoRedFlag.innerText = `Sintoma(s) crítico(s): ${redFlagsAtivos.map(r => r.nome).join(', ')}`;
+      } else {
+        alertaRedFlag.classList.add('hidden');
+      }
+
+      const bannerFiltro = naturezaSelecionada !== 'TODAS'
+        ? `<div class="mb-2 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-900/60 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-between">
+             <span>🔎 Filtrando: <strong class="text-red-600 dark:text-red-400">${naturezaSelecionada}</strong></span>
+             <button onclick="selecionarNaturezaRapida('TODAS')" class="text-red-600 dark:text-red-400 hover:underline">Mostrar todas</button>
+           </div>`
+        : '';
+
+      if (sintomasSelecionadosIds.length === 0) {
+        containerDiag.innerHTML = bannerFiltro + '<p class="text-sm text-slate-400 italic">Selecione os sintomas no passo 1 para gerar o diagnóstico...</p>';
+        atualizarRelatorio([], []);
+        return;
+      }
+
+      const pesosCriticidade = { 'CRITICO': 4, 'GRAVE': 3, 'INTERMEDIARIO': 2, 'LEVE': 1 };
+
+      const idsSintomasDaNatureza = naturezaSelecionada === 'TODAS'
+        ? null
+        : new Set(bancoSintomas.filter(s => s.categoria === naturezaSelecionada).map(s => s.id));
+
+      const diagnosticosEncontrados = bancoDiagnosticos
+        .map(diag => {
+          const sintomasEmComum = sintomasSelecionadosIds.filter(id => diag.sintomas_ids.includes(id));
+          const temRedFlagVinculado = redFlagsAtivos.some(rf => diag.sintomas_ids.includes(rf.id));
+          const bateNatureza = !idsSintomasDaNatureza
+            || diag.sintomas_ids.some(id => idsSintomasDaNatureza.has(id));
+          return {
+            ...diag,
+            matches: sintomasEmComum.length,
+            temRedFlagVinculado,
+            bateNatureza,
+            bateuTodosInformados: sintomasEmComum.length === sintomasSelecionadosIds.length
+          };
+        })
+        .filter(d => d.matches > 0 && d.bateNatureza)
+        .sort((a, b) => {
+          if (b.temRedFlagVinculado !== a.temRedFlagVinculado) return b.temRedFlagVinculado ? 1 : -1;
+          if (b.matches !== a.matches) return b.matches - a.matches;
+          return pesosCriticidade[b.criticidade] - pesosCriticidade[a.criticidade];
+        });
+
+      if (diagnosticosEncontrados.length === 0) {
+        containerDiag.innerHTML = bannerFiltro + `
+          <p class="text-xs text-amber-500 font-semibold">
+            Nenhum diagnóstico vinculado a estes sintomas
+            ${naturezaSelecionada !== 'TODAS' ? `na natureza <strong>${naturezaSelecionada}</strong>` : ''}.
+            ${naturezaSelecionada !== 'TODAS' ? 'Tente <button onclick="selecionarNaturezaRapida(\'TODAS\')" class="underline font-bold">mostrar todas as naturezas</button>.' : 'Verifique o cadastro no banco.'}
+          </p>`;
+      } else {
+        containerDiag.innerHTML = bannerFiltro + diagnosticosEncontrados.map(d => {
+          const badgeColors = {
+            'CRITICO': 'bg-red-600 text-white',
+            'GRAVE': 'bg-orange-500 text-white',
+            'INTERMEDIARIO': 'bg-amber-400 text-slate-900',
+            'LEVE': 'bg-emerald-500 text-white'
+          };
+          return `
+            <div class="border-l-4 ${d.temRedFlagVinculado || d.bateuTodosInformados ? 'border-red-600 bg-red-50/40 dark:bg-red-950/30' : 'border-slate-400'} p-3.5 rounded-lg border dark:border-slate-700 space-y-2">
+              <div class="flex justify-between items-start gap-2">
+                <div>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded ${badgeColors[d.criticidade]}">${d.criticidade}</span>
+                  <h3 class="font-bold text-sm md:text-base mt-1">${d.titulo}</h3>
+                </div>
+                <span class="text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                  ${d.matches}/${sintomasSelecionadosIds.length} sintomas
+                </span>
+              </div>
+              <p class="text-xs text-slate-600 dark:text-slate-300">${d.descricao || ''}</p>
+              <div class="bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 p-2.5 rounded-lg text-xs text-amber-950 dark:text-amber-200">
+                <strong class="block uppercase text-[10px] text-amber-900 dark:text-amber-400 mb-1">📞 Ler para o Solicitante no Telefone:</strong>
+                <div class="whitespace-pre-line leading-relaxed font-medium">${d.dicas_solicitante}</div>
+              </div>
             </div>
-            <span class="text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">
-              ${d.matches}/${sintomasSelecionadosIds.length} sintomas
-            </span>
-          </div>
-          <p class="text-xs text-slate-600 dark:text-slate-300">${d.descricao || ''}</p>
-          <div class="bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 p-2.5 rounded-lg text-xs text-amber-950 dark:text-amber-200">
-            <strong class="block uppercase text-[10px] text-amber-900 dark:text-amber-400 mb-1">📞 Ler para o Solicitante no Telefone:</strong>
-            <div class="whitespace-pre-line leading-relaxed font-medium">${d.dicas_solicitante}</div>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
+          `;
+        }).join('');
+      }
 
-  atualizarRelatorio(objetosSintomas, diagnosticosEncontrados);
-}
+      atualizarRelatorio(objetosSintomas, diagnosticosEncontrados);
+    }
 
-// ---------- AUTOCOMPLETE DE CADASTROS ----------
+    // ---------- AUTOCOMPLETE DE CADASTROS (evitar duplicata) ----------
 function popularDatalistsCadastros() {
+  // Sintomas
   const dlSint = document.getElementById('datalist-sintomas-existentes');
   if (dlSint) {
     dlSint.innerHTML = bancoSintomas.map(s =>
@@ -557,6 +612,7 @@ function popularDatalistsCadastros() {
     ).join('');
   }
 
+  // Diagnósticos
   const dlDiag = document.getElementById('datalist-diagnosticos-existentes');
   if (dlDiag) {
     dlDiag.innerHTML = bancoDiagnosticos.map(d =>
@@ -564,6 +620,7 @@ function popularDatalistsCadastros() {
     ).join('');
   }
 
+  // Perguntas
   const dlPerg = document.getElementById('datalist-perguntas-existentes');
   if (dlPerg) {
     dlPerg.innerHTML = bancoPerguntas.map(p =>
@@ -571,6 +628,7 @@ function popularDatalistsCadastros() {
     ).join('');
   }
 
+  // Cidades
   const dlCid = document.getElementById('datalist-cad-cidades-nomes');
   if (dlCid) {
     dlCid.innerHTML = bancoCidades.map(c =>
@@ -578,265 +636,269 @@ function popularDatalistsCadastros() {
     ).join('');
   }
 
+  // Bairros — filtrados pela cidade selecionada no form (se houver)
   const dlBai = document.getElementById('datalist-cad-bairros-nomes');
   if (dlBai) {
     const cidade = resolverCidadePorNome(document.getElementById('cad-bairro-cidade')?.value);
     const bairros = cidade
       ? bancoBairrosLocalidades.filter(b => b.cidade_id === cidade.id)
       : bancoBairrosLocalidades;
-    dlBai.innerHTML = bairros.map(b => `<option value="${b.nome}"></option>`).join('');
+    dlBai.innerHTML = bairros.map(b =>
+      `<option value="${b.nome}"></option>`
+    ).join('');
   }
 
+  // Ruas — filtradas pelo bairro selecionado (se houver)
   const dlRua = document.getElementById('datalist-cad-ruas-nomes');
   if (dlRua) {
     const cidade = resolverCidadePorNome(document.getElementById('cad-rua-cidade')?.value);
     const bairro = cidade ? resolverBairroPorNome(document.getElementById('cad-rua-bairro')?.value, cidade.id) : null;
     if (bairro && cacheRuas[bairro.id]) {
-      dlRua.innerHTML = cacheRuas[bairro.id].map(r => `<option value="${r.nome}"></option>`).join('');
+      dlRua.innerHTML = cacheRuas[bairro.id].map(r =>
+        `<option value="${r.nome}"></option>`
+      ).join('');
     } else {
       dlRua.innerHTML = '';
     }
   }
 }
 
-// ---------- VALIDADORES DE DUPLICATA ----------
+// ---------- VALIDADORES DE DUPLICATA (usa normalizarTexto) ----------
 function verificarSintomaDuplicado(nome) {
   const alvo = normalizarTexto(nome);
   return bancoSintomas.find(s => normalizarTexto(s.nome) === alvo);
 }
+
 function verificarDiagnosticoDuplicado(titulo) {
   const alvo = normalizarTexto(titulo);
   return bancoDiagnosticos.find(d => normalizarTexto(d.titulo) === alvo);
 }
+
 function verificarPerguntaDuplicada(texto) {
   const alvo = normalizarTexto(texto);
   return bancoPerguntas.find(p => normalizarTexto(p.texto) === alvo);
 }
+
 function verificarCidadeDuplicada(nome, uf) {
   const alvo = normalizarTexto(nome);
   const ufUp = (uf || '').toUpperCase();
   return bancoCidades.find(c => normalizarTexto(c.nome) === alvo && c.uf === ufUp);
 }
+
 function verificarBairroDuplicado(nome, cidadeId) {
   const alvo = normalizarTexto(nome);
   return bancoBairrosLocalidades.find(b =>
     b.cidade_id === cidadeId && normalizarTexto(b.nome) === alvo
   );
 }
+
 function verificarRuaDuplicada(nome, bairroId) {
   const alvo = normalizarTexto(nome);
   const ruas = cacheRuas[bairroId] || [];
   return ruas.find(r => normalizarTexto(r.nome) === alvo);
 }
 
-// =========================================================================
-// 8. VIATURAS E GUARNIÇÃO
-// =========================================================================
-async function salvarViatura(e) {
-  e.preventDefault();
-  const unidade = document.getElementById('cad-vtr-unidade').value.trim().toUpperCase();
-  const prefixo = document.getElementById('cad-vtr-prefixo').value.trim().toUpperCase();
-  const tipo = document.getElementById('cad-vtr-tipo').value;
+    // =========================================================================
+    // 8. VIATURAS E GUARNIÇÃO
+    // =========================================================================
+    async function salvarViatura(e) {
+      e.preventDefault();
+      const unidade = document.getElementById('cad-vtr-unidade').value.trim().toUpperCase();
+      const prefixo = document.getElementById('cad-vtr-prefixo').value.trim().toUpperCase();
+      const tipo = document.getElementById('cad-vtr-tipo').value;
 
-  const { error } = await supabaseClient.from('viaturas').insert([{ unidade, prefixo, tipo }]);
-  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      const { error } = await supabaseClient.from('viaturas').insert([{ unidade, prefixo, tipo }]);
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
 
-  document.getElementById('cad-vtr-prefixo').value = '';
-  mostrarToast(`Viatura ${prefixo} cadastrada.`, 'sucesso');
-  await sincronizarComSupabase(false);
-}
+      document.getElementById('cad-vtr-prefixo').value = '';
+      mostrarToast(`Viatura ${prefixo} cadastrada.`, 'sucesso');
+      await sincronizarComSupabase(false);
+    }
 
-async function excluirViatura(id) {
-  if (!confirm('Excluir esta viatura?')) return;
-  await supabaseClient.from('viaturas').delete().eq('id', id);
-  delete guarnicoesMemoria[id];
-  salvarGuarnicoesNaMemoria();
-  await sincronizarComSupabase(false);
-}
+    async function excluirViatura(id) {
+      if (!confirm('Excluir esta viatura?')) return;
+      await supabaseClient.from('viaturas').delete().eq('id', id);
+      delete guarnicoesMemoria[id];
+      salvarGuarnicoesNaMemoria();
+      await sincronizarComSupabase(false);
+    }
 
-function salvarGuarnicoesNaMemoria() {
-  localStorage.setItem('cobom_guarnicoes_memoria', JSON.stringify(guarnicoesMemoria));
-  renderizarViaturasEGuarnicao();
-  renderizarSelecaoViaturasTriagem();
-  atualizarRelatorio();
-}
+    function salvarGuarnicoesNaMemoria() {
+      localStorage.setItem('cobom_guarnicoes_memoria', JSON.stringify(guarnicoesMemoria));
+      renderizarViaturasEGuarnicao();
+      renderizarSelecaoViaturasTriagem();
+      atualizarRelatorio();
+    }
 
-function adicionarMilitarNaViatura(event, viaturaId) {
-  event.preventDefault();
-  const inputNome = document.getElementById(`mil-nome-${viaturaId}`);
-  const inputTel = document.getElementById(`mil-tel-${viaturaId}`);
-  if (!inputNome || !inputTel) return;
-  const nome = inputNome.value.trim();
-  const tel = inputTel.value.replace(/\D/g, '');
+    function adicionarMilitarNaViatura(event, viaturaId) {
+      event.preventDefault();
+      const inputNome = document.getElementById(`mil-nome-${viaturaId}`);
+      const inputTel = document.getElementById(`mil-tel-${viaturaId}`);
+      const nome = inputNome.value.trim();
+      const tel = inputTel.value.replace(/\D/g, '');
 
-  if (!nome || tel.length < 10) return mostrarToast('Informe Nome e WhatsApp com DDD.', 'erro');
-  if (!guarnicoesMemoria[viaturaId]) guarnicoesMemoria[viaturaId] = [];
-  guarnicoesMemoria[viaturaId].push({ id: 'm_' + Date.now(), nome, tel });
+      if (!nome || tel.length < 10) return mostrarToast('Informe Nome e WhatsApp com DDD.', 'erro');
+      if (!guarnicoesMemoria[viaturaId]) guarnicoesMemoria[viaturaId] = [];
+      guarnicoesMemoria[viaturaId].push({ id: 'm_' + Date.now(), nome, tel });
 
-  inputNome.value = '';
-  inputTel.value = '';
-  mostrarToast(`${nome} escalado.`, 'sucesso');
-  salvarGuarnicoesNaMemoria();
-}
+      inputNome.value = '';
+      inputTel.value = '';
+      mostrarToast(`${nome} escalado.`, 'sucesso');
+      salvarGuarnicoesNaMemoria();
+    }
 
-function removerMilitarIndividual(viaturaId, militarId) {
-  guarnicoesMemoria[viaturaId] = (guarnicoesMemoria[viaturaId] || []).filter(m => m.id !== militarId);
-  salvarGuarnicoesNaMemoria();
-}
+    function removerMilitarIndividual(viaturaId, militarId) {
+      guarnicoesMemoria[viaturaId] = (guarnicoesMemoria[viaturaId] || []).filter(m => m.id !== militarId);
+      salvarGuarnicoesNaMemoria();
+    }
 
-function limparGuarnicaoDaViatura(viaturaId) {
-  if (!confirm('Limpar guarnição desta viatura?')) return;
-  guarnicoesMemoria[viaturaId] = [];
-  salvarGuarnicoesNaMemoria();
-}
+    function limparGuarnicaoDaViatura(viaturaId) {
+      if (!confirm('Limpar guarnição desta viatura?')) return;
+      guarnicoesMemoria[viaturaId] = [];
+      salvarGuarnicoesNaMemoria();
+    }
 
-function limparTodasGuarnicoes() {
-  if (!confirm('Limpar TODAS as guarnições para novo turno?')) return;
-  guarnicoesMemoria = {};
-  salvarGuarnicoesNaMemoria();
-  mostrarToast('Todas as guarnições foram limpas.', 'sucesso');
-}
+    function limparTodasGuarnicoes() {
+      if (!confirm('Limpar TODAS as guarnições para novo turno?')) return;
+      guarnicoesMemoria = {};
+      salvarGuarnicoesNaMemoria();
+      mostrarToast('Todas as guarnições foram limpas.', 'sucesso');
+    }
 
-function renderizarViaturasEGuarnicao() {
-  const container = document.getElementById('lista-cards-viaturas');
-  if (!container) return;
-  if (bancoViaturas.length === 0) {
-    container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-2">Nenhuma viatura cadastrada.</p>`;
-    return;
-  }
+    function renderizarViaturasEGuarnicao() {
+      const container = document.getElementById('lista-cards-viaturas');
+      if (bancoViaturas.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-2">Nenhuma viatura cadastrada.</p>`;
+        return;
+      }
 
-  container.innerHTML = bancoViaturas.map(vtr => {
-    const militares = guarnicoesMemoria[vtr.id] || [];
-    return `
-      <div class="border dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-900/60 flex flex-col justify-between space-y-3">
-        <div>
-          <div class="flex justify-between items-start border-b dark:border-slate-700 pb-2">
+      container.innerHTML = bancoViaturas.map(vtr => {
+        const militares = guarnicoesMemoria[vtr.id] || [];
+        return `
+          <div class="border dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-900/60 flex flex-col justify-between space-y-3">
             <div>
-              <span class="text-[10px] font-black uppercase bg-red-700 text-white px-2 py-0.5 rounded">${vtr.unidade}</span>
-              <h3 class="font-black text-base mt-1">${vtr.prefixo}</h3>
-              <p class="text-[11px] text-slate-500">${vtr.tipo}</p>
-            </div>
-            <div class="flex items-center space-x-1">
-              <button onclick="limparGuarnicaoDaViatura('${vtr.id}')" class="text-[11px] bg-amber-500/20 text-amber-500 px-2 py-1 rounded font-bold">🧹 Limpar</button>
-              <button onclick="excluirViatura('${vtr.id}')" class="text-red-500 p-1">🗑️</button>
-            </div>
-          </div>
+              <div class="flex justify-between items-start border-b dark:border-slate-700 pb-2">
+                <div>
+                  <span class="text-[10px] font-black uppercase bg-red-700 text-white px-2 py-0.5 rounded">${vtr.unidade}</span>
+                  <h3 class="font-black text-base mt-1">${vtr.prefixo}</h3>
+                  <p class="text-[11px] text-slate-500">${vtr.tipo}</p>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <button onclick="limparGuarnicaoDaViatura('${vtr.id}')" class="text-[11px] bg-amber-500/20 text-amber-500 px-2 py-1 rounded font-bold">🧹 Limpar</button>
+                  <button onclick="excluirViatura('${vtr.id}')" class="text-red-500 p-1">🗑️</button>
+                </div>
+              </div>
 
-          <div class="mt-3 space-y-1.5">
-            <span class="text-[11px] font-bold uppercase text-slate-400">Guarnição (${militares.length}):</span>
-            ${militares.length === 0
-              ? `<p class="text-xs text-slate-400 italic">Sem militares na memória.</p>`
-              : `<ul class="space-y-1">
-                  ${militares.map(m => `
-                    <li class="flex justify-between items-center bg-white dark:bg-slate-800 px-2.5 py-1.5 rounded border dark:border-slate-700 text-xs">
-                      <span><strong>${m.nome}</strong> <span class="text-slate-500">${formatarTel(m.tel)}</span></span>
-                      <button onclick="removerMilitarIndividual('${vtr.id}', '${m.id}')" class="text-red-500 font-black px-1">✕</button>
-                    </li>
-                  `).join('')}
-                </ul>`
-            }
-          </div>
-        </div>
+              <div class="mt-3 space-y-1.5">
+                <span class="text-[11px] font-bold uppercase text-slate-400">Guarnição (${militares.length}):</span>
+                ${militares.length === 0
+                  ? `<p class="text-xs text-slate-400 italic">Sem militares na memória.</p>`
+                  : `<ul class="space-y-1">
+                      ${militares.map(m => `
+                        <li class="flex justify-between items-center bg-white dark:bg-slate-800 px-2.5 py-1.5 rounded border dark:border-slate-700 text-xs">
+                          <span><strong>${m.nome}</strong> <span class="text-slate-500">${formatarTel(m.tel)}</span></span>
+                          <button onclick="removerMilitarIndividual('${vtr.id}', '${m.id}')" class="text-red-500 font-black px-1">✕</button>
+                        </li>
+                      `).join('')}
+                    </ul>`
+                }
+              </div>
+            </div>
 
-        <form onsubmit="adicionarMilitarNaViatura(event, '${vtr.id}')" class="pt-2 border-t dark:border-slate-700 space-y-2">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-            <input type="text" id="mil-nome-${vtr.id}" required placeholder="Ex: Sgt Silva" class="border dark:border-slate-600 bg-white dark:bg-slate-800 rounded p-1.5 text-xs outline-none">
-            <input type="tel" id="mil-tel-${vtr.id}" required placeholder="64999990000" class="border dark:border-slate-600 bg-white dark:bg-slate-800 rounded p-1.5 text-xs outline-none">
+            <form onsubmit="adicionarMilitarNaViatura(event, '${vtr.id}')" class="pt-2 border-t dark:border-slate-700 space-y-2">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                <input type="text" id="mil-nome-${vtr.id}" required placeholder="Ex: Sgt Silva" class="border dark:border-slate-600 bg-white dark:bg-slate-800 rounded p-1.5 text-xs outline-none">
+                <input type="tel" id="mil-tel-${vtr.id}" required placeholder="64999990000" class="border dark:border-slate-600 bg-white dark:bg-slate-800 rounded p-1.5 text-xs outline-none">
+              </div>
+              <button type="submit" class="w-full bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold py-1.5 rounded">
+                + Escalar na ${vtr.prefixo}
+              </button>
+            </form>
           </div>
-          <button type="submit" class="w-full bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold py-1.5 rounded">
-            + Escalar na ${vtr.prefixo}
+        `;
+      }).join('');
+    }
+
+    function renderizarSelecaoViaturasTriagem() {
+      const container = document.getElementById('selecao-viaturas-triagem');
+      if (bancoViaturas.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-2">Nenhuma viatura cadastrada.</p>`;
+        return;
+      }
+
+      container.innerHTML = bancoViaturas.map(vtr => {
+        const marcada = viaturasEmpenhadasIds.includes(vtr.id);
+        const militares = guarnicoesMemoria[vtr.id] || [];
+        const nomesMilitares = militares.map(m => m.nome).join(', ') || 'Sem guarnição definida';
+        return `
+          <button type="button" onclick="alternarViaturaEmpenhada('${vtr.id}')" class="text-left p-3 rounded-xl border-2 transition flex justify-between items-center ${marcada ? 'border-red-600 bg-red-600 text-white shadow-md' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40'}">
+            <div>
+              <div class="font-black text-xs">[${vtr.unidade}] ${vtr.prefixo}</div>
+              <div class="text-[11px] ${marcada ? 'text-red-100' : 'text-slate-400'}">👥 ${nomesMilitares}</div>
+            </div>
+            <span class="text-base font-black">${marcada ? '✓' : '+'}</span>
           </button>
-        </form>
-      </div>
-    `;
-  }).join('');
-}
+        `;
+      }).join('');
+    }
 
-function renderizarSelecaoViaturasTriagem() {
-  const container = document.getElementById('selecao-viaturas-triagem');
-  if (!container) return;
-  if (bancoViaturas.length === 0) {
-    container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-2">Nenhuma viatura cadastrada.</p>`;
-    return;
-  }
+    function alternarViaturaEmpenhada(id) {
+      if (viaturasEmpenhadasIds.includes(id)) {
+        viaturasEmpenhadasIds = viaturasEmpenhadasIds.filter(v => v !== id);
+      } else {
+        viaturasEmpenhadasIds.push(id);
+        if (!protocoloAtual) gerarProtocolo();
+      }
+      renderizarSelecaoViaturasTriagem();
+      atualizarRelatorio();
+    }
 
-  container.innerHTML = bancoViaturas.map(vtr => {
-    const marcada = viaturasEmpenhadasIds.includes(vtr.id);
-    const militares = guarnicoesMemoria[vtr.id] || [];
-    const nomesMilitares = militares.map(m => m.nome).join(', ') || 'Sem guarnição definida';
-    return `
-      <button type="button" onclick="alternarViaturaEmpenhada('${vtr.id}')" class="text-left p-3 rounded-xl border-2 transition flex justify-between items-center ${marcada ? 'border-red-600 bg-red-600 text-white shadow-md' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40'}">
-        <div>
-          <div class="font-black text-xs">[${vtr.unidade}] ${vtr.prefixo}</div>
-          <div class="text-[11px] ${marcada ? 'text-red-100' : 'text-slate-400'}">👥 ${nomesMilitares}</div>
-        </div>
-        <span class="text-base font-black">${marcada ? '✓' : '+'}</span>
-      </button>
-    `;
-  }).join('');
-}
+    // =========================================================================
+    // 9. RELATÓRIO E WHATSAPP
+    // =========================================================================
+    function pedirLocalizacaoWhatsApp() {
+      const tel = document.getElementById('solicitante-tel').value.replace(/\D/g, '');
+      if (tel.length < 10) return mostrarToast('Digite o telefone com DDD do solicitante!', 'erro');
+      const foneBr = tel.startsWith('55') ? tel : '55' + tel;
+      const msg = encodeURIComponent(`🚒 *CORPO DE BOMBEIROS (193)*\nEnvie sua *Localização Atual* clicando no clipe (📎) ou (+) aqui no WhatsApp para enviarmos a viatura.`);
+      window.open(`https://wa.me/${foneBr}?text=${msg}`, '_blank');
+    }
 
-function alternarViaturaEmpenhada(id) {
-  if (viaturasEmpenhadasIds.includes(id)) {
-    viaturasEmpenhadasIds = viaturasEmpenhadasIds.filter(v => v !== id);
-  } else {
-    viaturasEmpenhadasIds.push(id);
-    if (!protocoloAtual) gerarProtocolo();
-  }
-  renderizarSelecaoViaturasTriagem();
-  atualizarRelatorio();
-}
+    function gerarLinkMapsPeloEndereco() {
+      const end = document.getElementById('solicitante-end').value.trim();
+      if (!end) return mostrarToast('Fale ou digite o Endereço primeiro!', 'erro');
+      document.getElementById('solicitante-link-gps').value = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(end)}`;
+      atualizarRelatorio();
+    }
 
-// =========================================================================
-// 9. RELATÓRIO E WHATSAPP
-// =========================================================================
-function pedirLocalizacaoWhatsApp() {
-  const tel = (document.getElementById('solicitante-tel')?.value || '').replace(/\D/g, '');
-  if (tel.length < 10) return mostrarToast('Digite o telefone com DDD do solicitante!', 'erro');
-  const foneBr = tel.startsWith('55') ? tel : '55' + tel;
-  const msg = encodeURIComponent(`🚒 *CORPO DE BOMBEIROS (193)*\nEnvie sua *Localização Atual* clicando no clipe (📎) ou (+) aqui no WhatsApp para enviarmos a viatura.`);
-  window.open(`https://wa.me/${foneBr}?text=${msg}`, '_blank');
-}
+    function montarTextoRelatorio() {
+      const nome = document.getElementById('rel-nome').textContent;
+      const tel = document.getElementById('rel-tel').textContent;
+      const end = document.getElementById('rel-end').textContent;
+      const linkGps = document.getElementById('solicitante-link-gps').value.trim();
+      const nat = document.getElementById('rel-natureza').textContent;
+      const idade = document.getElementById('rel-idade').textContent;
+      const peso = document.getElementById('rel-peso').textContent;
+      const qtd = document.getElementById('rel-qtd').textContent;
+      const obs = document.getElementById('obs-atendente').value;
+      const protocolo = protocoloAtual || '—';
 
-function gerarLinkMapsPeloEndereco() {
-  const end = (document.getElementById('solicitante-end')?.value || '').trim();
-  if (!end) return mostrarToast('Fale ou digite o Endereço primeiro!', 'erro');
-  const linkEl = document.getElementById('solicitante-link-gps');
-  if (linkEl) linkEl.value = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(end)}`;
-  atualizarRelatorio();
-}
+      const vtrsTxt = viaturasEmpenhadasIds.map(id => {
+        const v = bancoViaturas.find(b => b.id === id);
+        if (!v) return '';
+        const mils = (guarnicoesMemoria[id] || []).map(m => m.nome).join(', ');
+        return `  - [${v.unidade}] *${v.prefixo}* (${mils || 'S/ efetivo'})`;
+      }).join('\n');
 
-function montarTextoRelatorio() {
-  const nome = document.getElementById('solicitante-nome')?.value || 'Não inf.';
-  const tel = document.getElementById('solicitante-tel')?.value || 'Não inf.';
-  const end = document.getElementById('solicitante-end')?.value || 'Não informado';
-  const linkGps = (document.getElementById('solicitante-link-gps')?.value || '').trim();
-  const nat = naturezaSelecionada;
-  const idade = document.getElementById('vitima-idade')?.value || 'Não inf.';
-  const peso = document.getElementById('vitima-peso')?.value || 'Peso não inf.';
-  const qtd = document.getElementById('vitima-qtd')?.value || '1';
-  const obs = document.getElementById('obs-atendente')?.value || '';
-  const protocolo = protocoloAtual || '—';
-  const dataHora = document.getElementById('rel-datahora')?.textContent || '';
+      const sintomasTxt = Array.from(document.querySelectorAll('#rel-lista-sintomas li'))
+        .map(li => `  - ${li.textContent}`).join('\n');
 
-  const vtrsTxt = viaturasEmpenhadasIds.map(id => {
-    const v = bancoViaturas.find(b => b.id === id);
-    if (!v) return '';
-    const mils = (guarnicoesMemoria[id] || []).map(m => m.nome).join(', ');
-    return `  - [${v.unidade}] *${v.prefixo}* (${mils || 'S/ efetivo'})`;
-  }).join('\n');
+      const diagsTxt = Array.from(document.querySelectorAll('#rel-lista-diagnosticos div'))
+        .map(d => `  * ${d.textContent.trim()}`).join('\n');
 
-  const objetosSintomas = sintomasSelecionadosIds.map(id => bancoSintomas.find(s => s.id === id)).filter(Boolean);
-  const sintomasTxt = objetosSintomas.map(s => `  - ${s.red_flag ? '🚨 [RED FLAG] ' : ''}[${s.categoria}] ${s.nome}`).join('\n');
-
-  const pesosCriticidade = { 'CRITICO': 4, 'GRAVE': 3, 'INTERMEDIARIO': 2, 'LEVE': 1 };
-  const diagsTxt = bancoDiagnosticos.filter(d => d.sintomas_ids.some(id => sintomasSelecionadosIds.includes(id)))
-    .sort((a, b) => pesosCriticidade[b.criticidade] - pesosCriticidade[a.criticidade])
-    .map(d => `  * [${d.criticidade}] ${d.titulo}`).join('\n');
-
-  return `🚒 *DESPACHO COBOM - 193*
+      return `🚒 *DESPACHO COBOM - 193*
 🔖 *Protocolo:* ${protocolo}
-📅 ${dataHora}
+📅 ${document.getElementById('rel-datahora').textContent}
 -----------------------------------------
 📍 *ENDEREÇO:* ${end}${linkGps ? `\n🗺️ *GPS:* ${linkGps}` : ''}
 👤 *Solicitante:* ${nome} | 📞 ${tel}
@@ -844,397 +906,365 @@ function montarTextoRelatorio() {
 🧑 *Vítima(s):* ${qtd} | *Idade:* ${idade} | *Peso:* ${peso}
 
 🩺 *QUADRO / SINTOMAS:*
-${sintomasTxt || '  Nenhum'}
+${sintomasTxt}
 
 ⚠️ *SUSPEITA / CRITICIDADE:*
 ${diagsTxt || '  Nenhuma'}
 
 🚒 *VIATURAS EMPENHADAS:*
 ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
-}
-
-function enviarWhatsAppMilitar(telefone) {
-  const foneLimpo = telefone.replace(/\D/g, '');
-  const foneBr = foneLimpo.startsWith('55') ? foneLimpo : '55' + foneLimpo;
-  window.open(`https://wa.me/${foneBr}?text=${encodeURIComponent(montarTextoRelatorio())}`, '_blank');
-}
-
-function enviarGrupoOperacoesConjuntas() {
-  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(montarTextoRelatorio())}`, '_blank');
-}
-
-function atualizarRelatorio(sintomasAtivos = null, diagsAtivos = null) {
-  const setText = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
-  };
-
-  setText('rel-nome', document.getElementById('solicitante-nome')?.value || 'Não inf.');
-  setText('rel-tel', document.getElementById('solicitante-tel')?.value || 'Não inf.');
-  setText('rel-end', document.getElementById('solicitante-end')?.value || 'Não informado');
-  setText('rel-natureza', naturezaSelecionada);
-  setText('rel-idade', document.getElementById('vitima-idade')?.value || 'Não inf.');
-  setText('rel-peso', document.getElementById('vitima-peso')?.value || 'Peso não inf.');
-  setText('rel-qtd', document.getElementById('vitima-qtd')?.value || '1');
-  setText('rel-protocolo', protocoloAtual || '—');
-
-  const gpsVal = (document.getElementById('solicitante-link-gps')?.value || '').trim();
-  const linhaGps = document.getElementById('rel-linha-gps');
-  const linkGps = document.getElementById('rel-link-gps');
-  if (linhaGps && linkGps) {
-    if (gpsVal) {
-      linhaGps.classList.remove('hidden');
-      linkGps.href = gpsVal;
-      linkGps.textContent = gpsVal;
-    } else {
-      linhaGps.classList.add('hidden');
     }
-  }
 
-  const divRelViaturas = document.getElementById('rel-lista-viaturas');
-  const painelZap = document.getElementById('painel-whatsapp-militares');
-  const botoesZap = document.getElementById('botoes-whatsapp-militares');
+    function enviarWhatsAppMilitar(telefone) {
+      const foneLimpo = telefone.replace(/\D/g, '');
+      const foneBr = foneLimpo.startsWith('55') ? foneLimpo : '55' + foneLimpo;
+      window.open(`https://wa.me/${foneBr}?text=${encodeURIComponent(montarTextoRelatorio())}`, '_blank');
+    }
 
-  if (divRelViaturas && painelZap && botoesZap) {
-    if (viaturasEmpenhadasIds.length === 0) {
-      divRelViaturas.innerHTML = '<span class="text-slate-400 italic font-normal">Nenhuma viatura selecionada</span>';
-      painelZap.classList.add('hidden');
-    } else {
-      let todosMilitaresEmpenhados = [];
-      divRelViaturas.innerHTML = viaturasEmpenhadasIds.map(id => {
-        const v = bancoViaturas.find(b => b.id === id);
-        if (!v) return '';
-        const mils = guarnicoesMemoria[id] || [];
-        mils.forEach(m => todosMilitaresEmpenhados.push({ ...m, prefixo: v.prefixo }));
-        return `<div>🚒 [${v.unidade}] ${v.prefixo} — <span class="font-normal text-slate-600 dark:text-slate-300">${mils.map(m => m.nome).join(', ') || 'Sem guarnição'}</span></div>`;
+    function enviarGrupoOperacoesConjuntas() {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(montarTextoRelatorio())}`, '_blank');
+    }
+
+    function atualizarRelatorio(sintomasAtivos = null, diagsAtivos = null) {
+      document.getElementById('rel-nome').textContent = document.getElementById('solicitante-nome').value || 'Não inf.';
+      document.getElementById('rel-tel').textContent = document.getElementById('solicitante-tel').value || 'Não inf.';
+      document.getElementById('rel-end').textContent = document.getElementById('solicitante-end').value || 'Não informado';
+      document.getElementById('rel-natureza').textContent = naturezaSelecionada;
+      document.getElementById('rel-idade').textContent = document.getElementById('vitima-idade').value || 'Não inf.';
+      document.getElementById('rel-peso').textContent = document.getElementById('vitima-peso').value;
+      document.getElementById('rel-qtd').textContent = document.getElementById('vitima-qtd').value;
+      document.getElementById('rel-protocolo').textContent = protocoloAtual || '—';
+
+      const gpsVal = document.getElementById('solicitante-link-gps').value.trim();
+      const linhaGps = document.getElementById('rel-linha-gps');
+      const linkGps = document.getElementById('rel-link-gps');
+      if (gpsVal) {
+        linhaGps.classList.remove('hidden');
+        linkGps.href = gpsVal;
+        linkGps.textContent = gpsVal;
+      } else {
+        linhaGps.classList.add('hidden');
+      }
+
+      const divRelViaturas = document.getElementById('rel-lista-viaturas');
+      const painelZap = document.getElementById('painel-whatsapp-militares');
+      const botoesZap = document.getElementById('botoes-whatsapp-militares');
+
+      if (viaturasEmpenhadasIds.length === 0) {
+        divRelViaturas.innerHTML = '<span class="text-slate-400 italic font-normal">Nenhuma viatura selecionada</span>';
+        painelZap.classList.add('hidden');
+      } else {
+        let todosMilitaresEmpenhados = [];
+        divRelViaturas.innerHTML = viaturasEmpenhadasIds.map(id => {
+          const v = bancoViaturas.find(b => b.id === id);
+          if (!v) return '';
+          const mils = guarnicoesMemoria[id] || [];
+          mils.forEach(m => todosMilitaresEmpenhados.push({ ...m, prefixo: v.prefixo }));
+          return `<div>🚒 [${v.unidade}] ${v.prefixo} — <span class="font-normal text-slate-600 dark:text-slate-300">${mils.map(m => m.nome).join(', ') || 'Sem guarnição'}</span></div>`;
+        }).join('');
+
+        if (todosMilitaresEmpenhados.length > 0) {
+          painelZap.classList.remove('hidden');
+          botoesZap.innerHTML = todosMilitaresEmpenhados.map(m => `
+            <button onclick="enviarWhatsAppMilitar('${m.tel}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow flex items-center space-x-1.5">
+              <span>📲</span><span>${m.nome} (${m.prefixo})</span>
+            </button>
+          `).join('');
+        } else {
+          painelZap.classList.add('hidden');
+        }
+      }
+
+      const obs = document.getElementById('obs-atendente').value;
+      const obsContainer = document.getElementById('rel-obs-container');
+      if (obs.trim()) {
+        obsContainer.classList.remove('hidden');
+        document.getElementById('rel-obs').textContent = obs;
+      } else {
+        obsContainer.classList.add('hidden');
+      }
+
+      if (sintomasAtivos !== null) {
+        const ulSint = document.getElementById('rel-lista-sintomas');
+        ulSint.innerHTML = sintomasAtivos.length
+          ? sintomasAtivos.map(s => `<li>${s.red_flag ? '🚨 <strong>[RED FLAG]</strong> ' : ''}[${s.categoria}] ${s.nome}</li>`).join('')
+          : '<li class="text-slate-400 italic">Nenhum sintoma selecionado</li>';
+      }
+
+      if (diagsAtivos !== null) {
+        const divDiag = document.getElementById('rel-lista-diagnosticos');
+        if (diagsAtivos.length === 0) {
+          divDiag.innerHTML = '<p class="text-slate-400 italic">Sem hipóteses calculadas</p>';
+        } else {
+          divDiag.innerHTML = diagsAtivos.map(d => `
+            <div class="border-b dark:border-slate-700 pb-1">
+              <strong>[${d.criticidade}] ${d.titulo}</strong> (${d.matches}/${sintomasSelecionadosIds.length} sintomas)
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    function copiarRelatorio() {
+      navigator.clipboard.writeText(montarTextoRelatorio())
+        .then(() => mostrarToast('Ficha copiada para a área de transferência.', 'sucesso'))
+        .catch(() => mostrarToast('Não foi possível copiar. Use Ctrl+C manualmente.', 'erro'));
+    }
+
+    function baixarPDF() {
+      const html = document.documentElement;
+      const eraDark = html.classList.contains('dark');
+      const blocoEdicaoObs = document.querySelector('#area-relatorio .no-print');
+
+      if (eraDark) html.classList.remove('dark');
+      if (blocoEdicaoObs) blocoEdicaoObs.style.display = 'none';
+
+      const restaurar = () => {
+        if (eraDark) html.classList.add('dark');
+        if (blocoEdicaoObs) blocoEdicaoObs.style.display = '';
+      };
+
+      const nomeArquivo = `despacho-193-${(protocoloAtual || Date.now()).replace(/[^\w-]/g, '_')}.pdf`;
+
+      html2pdf().set({
+        margin: 10,
+        filename: nomeArquivo,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      })
+      .from(document.getElementById('area-relatorio'))
+      .save()
+      .then(() => { restaurar(); mostrarToast('PDF gerado.', 'sucesso'); })
+      .catch(() => { restaurar(); mostrarToast('Erro ao gerar PDF.', 'erro'); });
+    }
+
+    function limparChamado() {
+      const temConteudo =
+        sintomasSelecionadosIds.length > 0 ||
+        document.getElementById('solicitante-nome').value.trim() ||
+        document.getElementById('solicitante-tel').value.trim() ||
+        document.getElementById('solicitante-end').value.trim() ||
+        viaturasEmpenhadasIds.length > 0;
+
+      if (temConteudo && !confirm('Limpar o chamado atual? Esta ação não pode ser desfeita.')) return;
+
+      document.getElementById('solicitante-nome').value = '';
+      document.getElementById('solicitante-tel').value = '';
+      document.getElementById('solicitante-end').value = '';
+      document.getElementById('solicitante-link-gps').value = '';
+      document.getElementById('vitima-idade').value = '';
+      document.getElementById('vitima-peso').value = 'Peso não inf.';
+      document.getElementById('vitima-qtd').value = '1';
+      document.getElementById('obs-atendente').value = '';
+      document.getElementById('input-busca-sintoma').value = '';
+      document.getElementById('rel-datahora').innerText = new Date().toLocaleString('pt-BR');
+
+      sintomasSelecionadosIds = [];
+      viaturasEmpenhadasIds = [];
+      protocoloAtual = null;
+      pararTimer();
+
+      limparEnderecoEstruturado();
+      selecionarNaturezaRapida('TODAS');
+      renderizarSelecaoViaturasTriagem();
+      processarTriagem();
+      perguntasFeitas = {};
+      renderizarPerguntasTriagem();
+      mostrarToast('Chamado limpo. Pronto para nova ocorrência.', 'info');
+    }
+
+    // =========================================================================
+    // 10. CRUD SINTOMAS/DIAGNÓSTICOS
+    // =========================================================================
+    function renderizarAdmin() {
+      document.getElementById('count-sintomas').textContent = bancoSintomas.length;
+      document.getElementById('count-diagnosticos').textContent = bancoDiagnosticos.length;
+
+      document.getElementById('lista-admin-sintomas').innerHTML = bancoSintomas.map(s => `
+        <li class="py-1.5 px-2 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
+          <span>${s.red_flag ? '🚨 ' : ''}<strong>[${s.categoria}]</strong> ${s.nome}</span>
+          <div class="flex space-x-1">
+            <button onclick="iniciarEdicaoSintoma('${s.id}')" class="text-blue-500 px-1.5">✏️</button>
+            <button onclick="excluirSintoma('${s.id}')" class="text-red-500 px-1.5">🗑️</button>
+          </div>
+        </li>
+      `).join('');
+
+      const estaEditandoDiag = !!document.getElementById('edit-diag-id').value;
+      const selecionadosAtuais = estaEditandoDiag
+        ? Array.from(document.querySelectorAll('input[name="sintoma-check"]:checked')).map(c => c.value)
+        : [];
+
+      document.getElementById('checkboxes-sintomas-cadastro').innerHTML = bancoSintomas.map(s => {
+        const checked = selecionadosAtuais.includes(s.id) ? 'checked' : '';
+        return `
+          <label class="flex items-center space-x-2 p-1.5 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded cursor-pointer">
+            <input type="checkbox" name="sintoma-check" value="${s.id}" ${checked} class="rounded text-red-600">
+            <span>${s.red_flag ? '🚨 ' : ''}<strong>[${s.categoria}]</strong> ${s.nome}</span>
+          </label>
+        `;
       }).join('');
 
-      if (todosMilitaresEmpenhados.length > 0) {
-        painelZap.classList.remove('hidden');
-        botoesZap.innerHTML = todosMilitaresEmpenhados.map(m => `
-          <button onclick="enviarWhatsAppMilitar('${m.tel}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow flex items-center space-x-1.5">
-            <span>📲</span><span>${m.nome} (${m.prefixo})</span>
-          </button>
-        `).join('');
-      } else {
-        painelZap.classList.add('hidden');
-      }
-    }
-  }
-
-  const obs = document.getElementById('obs-atendente')?.value || '';
-  const obsContainer = document.getElementById('rel-obs-container');
-  if (obsContainer) {
-    if (obs.trim()) {
-      obsContainer.classList.remove('hidden');
-      const el = document.getElementById('rel-obs');
-      if (el) el.textContent = obs;
-    } else {
-      obsContainer.classList.add('hidden');
-    }
-  }
-
-  if (sintomasAtivos !== null) {
-    const ulSint = document.getElementById('rel-lista-sintomas');
-    if (ulSint) {
-      ulSint.innerHTML = sintomasAtivos.length
-        ? sintomasAtivos.map(s => `<li>${s.red_flag ? '🚨 <strong>[RED FLAG]</strong> ' : ''}[${s.categoria}] ${s.nome}</li>`).join('')
-        : '<li class="text-slate-400 italic">Nenhum sintoma selecionado</li>';
-    }
-  }
-
-  if (diagsAtivos !== null) {
-    const divDiag = document.getElementById('rel-lista-diagnosticos');
-    if (divDiag) {
-      if (diagsAtivos.length === 0) {
-        divDiag.innerHTML = '<p class="text-slate-400 italic">Sem hipóteses calculadas</p>';
-      } else {
-        divDiag.innerHTML = diagsAtivos.map(d => `
-          <div class="border-b dark:border-slate-700 pb-1">
-            <strong>[${d.criticidade}] ${d.titulo}</strong> (${d.matches}/${sintomasSelecionadosIds.length} sintomas)
+      document.getElementById('lista-admin-diagnosticos').innerHTML = bancoDiagnosticos.map(d => `
+        <li class="py-2 px-2 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
+          <div>
+            <span class="font-bold">[${d.criticidade}] ${d.titulo}</span>
+            <span class="text-slate-400 ml-1">(${d.sintomas_ids.length} sintomas)</span>
           </div>
-        `).join('');
+          <div class="flex space-x-1">
+            <button onclick="iniciarEdicaoDiagnostico('${d.id}')" class="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded font-bold">✏️</button>
+            <button onclick="excluirDiagnostico('${d.id}')" class="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-1 rounded font-bold">🗑️</button>
+          </div>
+        </li>
+      `).join('');
+      popularDatalistsCadastros();
+    }
+
+    function iniciarEdicaoSintoma(id) {
+      const sint = bancoSintomas.find(s => s.id === id);
+      if (!sint) return;
+      document.getElementById('edit-sintoma-id').value = sint.id;
+      document.getElementById('cad-sintoma-cat').value = sint.categoria;
+      document.getElementById('cad-sintoma-nome').value = sint.nome;
+      document.getElementById('cad-sintoma-redflag').checked = !!sint.red_flag;
+      document.getElementById('titulo-form-sintoma').innerText = '✏️ Editando Sintoma';
+      document.getElementById('btn-submit-sintoma').innerText = 'Atualizar Sintoma';
+      document.getElementById('btn-cancelar-sintoma').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicaoSintoma() {
+      document.getElementById('form-sintoma').reset();
+      document.getElementById('edit-sintoma-id').value = '';
+      document.getElementById('titulo-form-sintoma').innerText = '➕ 1. Cadastrar Sintoma';
+      document.getElementById('btn-submit-sintoma').innerText = 'Gravar Sintoma no Supabase';
+      document.getElementById('btn-cancelar-sintoma').classList.add('hidden');
+    }
+
+    async function salvarSintoma(e) {
+      e.preventDefault();
+      const idEdicao = document.getElementById('edit-sintoma-id').value;
+      const categoria = document.getElementById('cad-sintoma-cat').value;
+      const nome = document.getElementById('cad-sintoma-nome').value.trim();
+      const red_flag = document.getElementById('cad-sintoma-redflag').checked;
+      const dup = verificarSintomaDuplicado(nome);
+      if (dup && dup.id !== idEdicao) {
+        if (!confirm(`Já existe um sintoma parecido:\n\n"${dup.nome}" em [${dup.categoria}]${dup.red_flag ? ' 🚨' : ''}\n\nCadastrar mesmo assim?`)) return;
+      }
+
+      const { error } = idEdicao
+        ? await supabaseClient.from('sintomas').update({ categoria, nome, red_flag }).eq('id', idEdicao)
+        : await supabaseClient.from('sintomas').insert([{ categoria, nome, red_flag }]);
+
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      cancelarEdicaoSintoma();
+      mostrarToast(idEdicao ? 'Sintoma atualizado.' : 'Sintoma gravado.', 'sucesso');
+      await sincronizarComSupabase(false);
+    }
+
+    async function excluirSintoma(id) {
+      if (!confirm('Excluir este sintoma? Os vínculos com diagnósticos também serão removidos.')) return;
+      await supabaseClient.from('sintomas').delete().eq('id', id);
+      mostrarToast('Sintoma excluído.', 'sucesso');
+      await sincronizarComSupabase(false);
+    }
+
+    function iniciarEdicaoDiagnostico(id) {
+      const diag = bancoDiagnosticos.find(d => d.id === id);
+      if (!diag) return;
+      document.getElementById('edit-diag-id').value = diag.id;
+      document.getElementById('cad-diag-titulo').value = diag.titulo;
+      document.getElementById('cad-diag-crit').value = diag.criticidade;
+      document.getElementById('cad-diag-desc').value = diag.descricao || '';
+      document.getElementById('cad-diag-dicas').value = diag.dicas_solicitante || '';
+      document.querySelectorAll('input[name="sintoma-check"]').forEach(chk => {
+        chk.checked = diag.sintomas_ids.includes(chk.value);
+      });
+      document.getElementById('titulo-form-diag').innerText = `✏️ Editando: ${diag.titulo}`;
+      document.getElementById('btn-submit-diag').innerText = 'Salvar Alterações';
+      document.getElementById('btn-cancelar-diag').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicaoDiagnostico() {
+      document.getElementById('form-diagnostico').reset();
+      document.getElementById('edit-diag-id').value = '';
+      document.querySelectorAll('input[name="sintoma-check"]').forEach(chk => chk.checked = false);
+      document.getElementById('titulo-form-diag').innerText = '🩺 2. Cadastrar Diagnóstico';
+      document.getElementById('btn-submit-diag').innerText = 'Gravar Diagnóstico no Supabase';
+      document.getElementById('btn-cancelar-diag').classList.add('hidden');
+    }
+
+    async function salvarDiagnostico(e) {
+      e.preventDefault();
+      const idEdicao = document.getElementById('edit-diag-id').value;
+      const titulo = document.getElementById('cad-diag-titulo').value.trim();
+      const criticidade = document.getElementById('cad-diag-crit').value;
+      const descricao = document.getElementById('cad-diag-desc').value.trim();
+      const dicas_solicitante = document.getElementById('cad-diag-dicas').value.trim();
+      const sintomas_ids = Array.from(document.querySelectorAll('input[name="sintoma-check"]:checked')).map(c => c.value);
+
+      const dup = verificarDiagnosticoDuplicado(titulo);
+      if (dup && dup.id !== idEdicao) {
+        if (!confirm(`Já existe um diagnóstico com esse título:\n\n"${dup.titulo}" [${dup.criticidade}]\n\nCadastrar mesmo assim?`)) return;
+      }
+
+      if (sintomas_ids.length === 0) return mostrarToast('Selecione ao menos 1 sintoma!', 'erro');
+
+      let diagId = idEdicao;
+      if (idEdicao) {
+        const { error } = await supabaseClient.from('diagnosticos').update({ titulo, criticidade, descricao, dicas_solicitante }).eq('id', idEdicao);
+        if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+        await supabaseClient.from('diagnostico_sintomas').delete().eq('diagnostico_id', idEdicao);
+      } else {
+        const { data, error } = await supabaseClient.from('diagnosticos').insert([{ titulo, criticidade, descricao, dicas_solicitante }]).select().single();
+        if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+        diagId = data.id;
+      }
+
+      const relacoes = sintomas_ids.map(sintoma_id => ({ diagnostico_id: diagId, sintoma_id }));
+      const { error: relError } = await supabaseClient.from('diagnostico_sintomas').insert(relacoes);
+      if (relError) return mostrarToast('Erro ao vincular sintomas: ' + relError.message, 'erro');
+
+      cancelarEdicaoDiagnostico();
+      mostrarToast(idEdicao ? 'Diagnóstico atualizado.' : 'Diagnóstico gravado.', 'sucesso');
+      await sincronizarComSupabase(false);
+    }
+
+    async function excluirDiagnostico(id) {
+      if (!confirm('Excluir este diagnóstico?')) return;
+      await supabaseClient.from('diagnosticos').delete().eq('id', id);
+      mostrarToast('Diagnóstico excluído.', 'sucesso');
+      await sincronizarComSupabase(false);
+    }
+
+    function alternarAba(aba) {
+      const abas = ['triagem', 'viaturas', 'cadastros'];
+      abas.forEach(a => {
+        document.getElementById(`view-${a}`).classList.toggle('hidden', a !== aba);
+        const btn = document.getElementById(`tab-${a}`);
+        if (a === aba) {
+          btn.className = "flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-white text-red-700 shadow whitespace-nowrap";
+        } else {
+          btn.className = "flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold bg-red-800 text-white hover:bg-red-950 whitespace-nowrap";
+        }
+      });
+      if (aba === 'cadastros') {
+        aplicarCidadePadraoAdmin();
+        renderizarAdminCidades();
+        renderizarAdminBairros();
+        renderizarAdminRuas();
+        renderizarAdminPerguntas();
+        renderizarSelectsPerguntas();
       }
     }
-  }
-}
-
-function copiarRelatorio() {
-  navigator.clipboard.writeText(montarTextoRelatorio())
-    .then(() => mostrarToast('Ficha copiada para a área de transferência.', 'sucesso'))
-    .catch(() => mostrarToast('Não foi possível copiar. Use Ctrl+C manualmente.', 'erro'));
-}
-
-function baixarPDF() {
-  const areaRelatorio = document.getElementById('area-relatorio');
-  if (!areaRelatorio) return mostrarToast('Área do relatório não encontrada.', 'erro');
-  if (typeof html2pdf === 'undefined') return mostrarToast('html2pdf não carregado.', 'erro');
-
-  const html = document.documentElement;
-  const eraDark = html.classList.contains('dark');
-  const blocoEdicaoObs = document.querySelector('#area-relatorio .no-print');
-
-  if (eraDark) html.classList.remove('dark');
-  if (blocoEdicaoObs) blocoEdicaoObs.style.display = 'none';
-
-  const restaurar = () => {
-    if (eraDark) html.classList.add('dark');
-    if (blocoEdicaoObs) blocoEdicaoObs.style.display = '';
-  };
-
-  const nomeArquivo = `despacho-193-${(protocoloAtual || Date.now()).replace(/[^\w-]/g, '_')}.pdf`;
-
-  html2pdf().set({
-    margin: 10,
-    filename: nomeArquivo,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, backgroundColor: '#ffffff' },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  })
-  .from(areaRelatorio)
-  .save()
-  .then(() => { restaurar(); mostrarToast('PDF gerado.', 'sucesso'); })
-  .catch(() => { restaurar(); mostrarToast('Erro ao gerar PDF.', 'erro'); });
-}
-
-function limparChamado() {
-  const temConteudo =
-    sintomasSelecionadosIds.length > 0 ||
-    (document.getElementById('solicitante-nome')?.value || '').trim() ||
-    (document.getElementById('solicitante-tel')?.value || '').trim() ||
-    (document.getElementById('solicitante-end')?.value || '').trim() ||
-    viaturasEmpenhadasIds.length > 0;
-
-  if (temConteudo && !confirm('Limpar o chamado atual? Esta ação não pode ser desfeita.')) return;
-
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-  set('solicitante-nome', '');
-  set('solicitante-tel', '');
-  set('solicitante-end', '');
-  set('solicitante-link-gps', '');
-  set('vitima-idade', '');
-  set('vitima-peso', 'Peso não inf.');
-  set('vitima-qtd', '1');
-  set('obs-atendente', '');
-  set('input-busca-sintoma', '');
-
-  const elData = document.getElementById('rel-datahora');
-  if (elData) elData.innerText = new Date().toLocaleString('pt-BR');
-
-  sintomasSelecionadosIds = [];
-  viaturasEmpenhadasIds = [];
-  protocoloAtual = null;
-  pararTimer();
-
-  limparEnderecoEstruturado();
-  selecionarNaturezaRapida('TODAS');
-  renderizarSelecaoViaturasTriagem();
-  processarTriagem();
-  perguntasFeitas = {};
-  respostasPerguntasAtuais = {};
-  renderizarPerguntasTriagem();
-  mostrarToast('Chamado limpo. Pronto para nova ocorrência.', 'info');
-}
 
 // =========================================================================
-// 10. CRUD SINTOMAS/DIAGNÓSTICOS
+// 10.B PERGUNTAS DE TRIAGEM (Sintoma → Pergunta → Resposta → Novo Sintoma)
 // =========================================================================
-function renderizarAdmin() {
-  const cs = document.getElementById('count-sintomas');
-  const cd = document.getElementById('count-diagnosticos');
-  if (cs) cs.textContent = bancoSintomas.length;
-  if (cd) cd.textContent = bancoDiagnosticos.length;
 
-  const listaSint = document.getElementById('lista-admin-sintomas');
-  if (listaSint) {
-    listaSint.innerHTML = bancoSintomas.map(s => `
-      <li class="py-1.5 px-2 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
-        <span>${s.red_flag ? '🚨 ' : ''}<strong>[${s.categoria}]</strong> ${s.nome}</span>
-        <div class="flex space-x-1">
-          <button onclick="iniciarEdicaoSintoma('${s.id}')" class="text-blue-500 px-1.5">✏️</button>
-          <button onclick="excluirSintoma('${s.id}')" class="text-red-500 px-1.5">🗑️</button>
-        </div>
-      </li>
-    `).join('');
-  }
-
-  const chkContainer = document.getElementById('checkboxes-sintomas-cadastro');
-  if (chkContainer) {
-    const estaEditandoDiag = !!document.getElementById('edit-diag-id')?.value;
-    const selecionadosAtuais = estaEditandoDiag
-      ? Array.from(document.querySelectorAll('input[name="sintoma-check"]:checked')).map(c => c.value)
-      : [];
-
-    chkContainer.innerHTML = bancoSintomas.map(s => {
-      const checked = selecionadosAtuais.includes(s.id) ? 'checked' : '';
-      return `
-        <label class="flex items-center space-x-2 p-1.5 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded cursor-pointer">
-          <input type="checkbox" name="sintoma-check" value="${s.id}" ${checked} class="rounded text-red-600">
-          <span>${s.red_flag ? '🚨 ' : ''}<strong>[${s.categoria}]</strong> ${s.nome}</span>
-        </label>
-      `;
-    }).join('');
-  }
-
-  const listaDiag = document.getElementById('lista-admin-diagnosticos');
-  if (listaDiag) {
-    listaDiag.innerHTML = bancoDiagnosticos.map(d => `
-      <li class="py-2 px-2 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
-        <div>
-          <span class="font-bold">[${d.criticidade}] ${d.titulo}</span>
-          <span class="text-slate-400 ml-1">(${d.sintomas_ids.length} sintomas)</span>
-        </div>
-        <div class="flex space-x-1">
-          <button onclick="iniciarEdicaoDiagnostico('${d.id}')" class="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded font-bold">✏️</button>
-          <button onclick="excluirDiagnostico('${d.id}')" class="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-1 rounded font-bold">🗑️</button>
-        </div>
-      </li>
-    `).join('');
-  }
-  popularDatalistsCadastros();
-}
-
-function iniciarEdicaoSintoma(id) {
-  const sint = bancoSintomas.find(s => s.id === id);
-  if (!sint) return;
-  document.getElementById('edit-sintoma-id').value = sint.id;
-  document.getElementById('cad-sintoma-cat').value = sint.categoria;
-  document.getElementById('cad-sintoma-nome').value = sint.nome;
-  document.getElementById('cad-sintoma-redflag').checked = !!sint.red_flag;
-  document.getElementById('titulo-form-sintoma').innerText = '✏️ Editando Sintoma';
-  document.getElementById('btn-submit-sintoma').innerText = 'Atualizar Sintoma';
-  document.getElementById('btn-cancelar-sintoma').classList.remove('hidden');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function cancelarEdicaoSintoma() {
-  document.getElementById('form-sintoma').reset();
-  document.getElementById('edit-sintoma-id').value = '';
-  document.getElementById('titulo-form-sintoma').innerText = '➕ 1. Cadastrar Sintoma';
-  document.getElementById('btn-submit-sintoma').innerText = 'Gravar Sintoma no Supabase';
-  document.getElementById('btn-cancelar-sintoma').classList.add('hidden');
-}
-
-async function salvarSintoma(e) {
-  e.preventDefault();
-  const idEdicao = document.getElementById('edit-sintoma-id').value;
-  const categoria = document.getElementById('cad-sintoma-cat').value;
-  const nome = document.getElementById('cad-sintoma-nome').value.trim();
-  const red_flag = document.getElementById('cad-sintoma-redflag').checked;
-  const dup = verificarSintomaDuplicado(nome);
-  if (dup && dup.id !== idEdicao) {
-    if (!confirm(`Já existe um sintoma parecido:\n\n"${dup.nome}" em [${dup.categoria}]${dup.red_flag ? ' 🚨' : ''}\n\nCadastrar mesmo assim?`)) return;
-  }
-
-  const { error } = idEdicao
-    ? await supabaseClient.from('sintomas').update({ categoria, nome, red_flag }).eq('id', idEdicao)
-    : await supabaseClient.from('sintomas').insert([{ categoria, nome, red_flag }]);
-
-  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
-  cancelarEdicaoSintoma();
-  mostrarToast(idEdicao ? 'Sintoma atualizado.' : 'Sintoma gravado.', 'sucesso');
-  await sincronizarComSupabase(false);
-}
-
-async function excluirSintoma(id) {
-  if (!confirm('Excluir este sintoma? Os vínculos com diagnósticos também serão removidos.')) return;
-  await supabaseClient.from('sintomas').delete().eq('id', id);
-  mostrarToast('Sintoma excluído.', 'sucesso');
-  await sincronizarComSupabase(false);
-}
-
-function iniciarEdicaoDiagnostico(id) {
-  const diag = bancoDiagnosticos.find(d => d.id === id);
-  if (!diag) return;
-  document.getElementById('edit-diag-id').value = diag.id;
-  document.getElementById('cad-diag-titulo').value = diag.titulo;
-  document.getElementById('cad-diag-crit').value = diag.criticidade;
-  document.getElementById('cad-diag-desc').value = diag.descricao || '';
-  document.getElementById('cad-diag-dicas').value = diag.dicas_solicitante || '';
-  document.querySelectorAll('input[name="sintoma-check"]').forEach(chk => {
-    chk.checked = diag.sintomas_ids.includes(chk.value);
-  });
-  document.getElementById('titulo-form-diag').innerText = `✏️ Editando: ${diag.titulo}`;
-  document.getElementById('btn-submit-diag').innerText = 'Salvar Alterações';
-  document.getElementById('btn-cancelar-diag').classList.remove('hidden');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function cancelarEdicaoDiagnostico() {
-  document.getElementById('form-diagnostico').reset();
-  document.getElementById('edit-diag-id').value = '';
-  document.querySelectorAll('input[name="sintoma-check"]').forEach(chk => chk.checked = false);
-  document.getElementById('titulo-form-diag').innerText = '🩺 2. Cadastrar Diagnóstico';
-  document.getElementById('btn-submit-diag').innerText = 'Gravar Diagnóstico no Supabase';
-  document.getElementById('btn-cancelar-diag').classList.add('hidden');
-}
-
-async function salvarDiagnostico(e) {
-  e.preventDefault();
-  const idEdicao = document.getElementById('edit-diag-id').value;
-  const titulo = document.getElementById('cad-diag-titulo').value.trim();
-  const criticidade = document.getElementById('cad-diag-crit').value;
-  const descricao = document.getElementById('cad-diag-desc').value.trim();
-  const dicas_solicitante = document.getElementById('cad-diag-dicas').value.trim();
-  const sintomas_ids = Array.from(document.querySelectorAll('input[name="sintoma-check"]:checked')).map(c => c.value);
-
-  const dup = verificarDiagnosticoDuplicado(titulo);
-  if (dup && dup.id !== idEdicao) {
-    if (!confirm(`Já existe um diagnóstico com esse título:\n\n"${dup.titulo}" [${dup.criticidade}]\n\nCadastrar mesmo assim?`)) return;
-  }
-
-  if (sintomas_ids.length === 0) return mostrarToast('Selecione ao menos 1 sintoma!', 'erro');
-
-  let diagId = idEdicao;
-  if (idEdicao) {
-    const { error } = await supabaseClient.from('diagnosticos').update({ titulo, criticidade, descricao, dicas_solicitante }).eq('id', idEdicao);
-    if (error) return mostrarToast('Erro: ' + error.message, 'erro');
-    await supabaseClient.from('diagnostico_sintomas').delete().eq('diagnostico_id', idEdicao);
-  } else {
-    const { data, error } = await supabaseClient.from('diagnosticos').insert([{ titulo, criticidade, descricao, dicas_solicitante }]).select().single();
-    if (error) return mostrarToast('Erro: ' + error.message, 'erro');
-    diagId = data.id;
-  }
-
-  const relacoes = sintomas_ids.map(sintoma_id => ({ diagnostico_id: diagId, sintoma_id }));
-  const { error: relError } = await supabaseClient.from('diagnostico_sintomas').insert(relacoes);
-  if (relError) return mostrarToast('Erro ao vincular sintomas: ' + relError.message, 'erro');
-
-  cancelarEdicaoDiagnostico();
-  mostrarToast(idEdicao ? 'Diagnóstico atualizado.' : 'Diagnóstico gravado.', 'sucesso');
-  await sincronizarComSupabase(false);
-}
-
-async function excluirDiagnostico(id) {
-  if (!confirm('Excluir este diagnóstico?')) return;
-  await supabaseClient.from('diagnosticos').delete().eq('id', id);
-  mostrarToast('Diagnóstico excluído.', 'sucesso');
-  await sincronizarComSupabase(false);
-}
-
-function alternarAba(aba) {
-  ['triagem','viaturas','cadastros'].forEach(a => {
-    const view = document.getElementById(`view-${a}`);
-    if (view) view.classList.toggle('hidden', a !== aba);
-    const btn = document.getElementById(`tab-${a}`);
-    if (btn) {
-      btn.classList.toggle('active', a === aba);
-      btn.setAttribute('aria-selected', a === aba ? 'true' : 'false');
-    }
-  });
-  if (aba === 'cadastros') {
-    aplicarCidadePadraoAdmin();
-    renderizarAdminCidades();
-    renderizarAdminBairros();
-    renderizarAdminRuas();
-    renderizarAdminPerguntas();
-    renderizarSelectsPerguntas();
-  }
-}
-
-// =========================================================================
-// 10.B PERGUNTAS DE TRIAGEM
-// =========================================================================
+// ---------- SYNC ----------
 async function sincronizarPerguntas() {
   try {
     const [resPerg, resSintPerg] = await Promise.all([
@@ -1246,7 +1276,7 @@ async function sincronizarPerguntas() {
 
     bancoPerguntas = resPerg.data || [];
     bancoSintomaPerguntas = resSintPerg.data || [];
-    bancoPerguntaRespostas = [];
+    bancoPerguntaRespostas = [];   // mantido como array vazio por compatibilidade
 
     localStorage.setItem('cobom_cache_perguntas', JSON.stringify(bancoPerguntas));
     localStorage.setItem('cobom_cache_sintoma_perguntas', JSON.stringify(bancoSintomaPerguntas));
@@ -1261,6 +1291,8 @@ async function sincronizarPerguntas() {
   renderizarAdminPerguntas();
   renderizarSelectsPerguntas();
 }
+
+// ---------- RENDER DO PAINEL NA TRIAGEM ----------
 
 function renderizarPerguntasTriagem() {
   const painel = document.getElementById('painel-perguntas-triagem');
@@ -1320,15 +1352,15 @@ function renderizarPerguntasTriagem() {
     const estiloTexto = feita ? 'line-through opacity-50' : '';
 
     return `
-      <div class="border-l-4 ${cor} p-3 rounded-lg border dark:border-slate-700 transition-all">
-        <div class="flex items-start justify-between gap-3">
+      <div class="border-l-4 ${cor} p-3 rounded-lg border dark:border-slate-700">
+        <div class="flex items-start justify-between gap-2">
           <div class="flex-1 min-w-0">
             <h3 class="font-bold text-sm ${estiloTexto}">${icone}${p.texto}${tagRf}</h3>
             ${p.dica_operador ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 ${estiloTexto}">💡 ${p.dica_operador}</p>` : ''}
           </div>
           <button type="button" onclick="togglePerguntaFeita('${p.id}')"
-            class="text-[11px] font-bold px-3 py-1.5 rounded-lg shrink-0 transition shadow-sm ${feita ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-emerald-100'}">
-            ${feita ? '✓ Respondida' : 'Marcar Feita'}
+            class="text-[11px] font-bold px-2.5 py-1 rounded shrink-0 transition ${feita ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-emerald-100'}">
+            ${feita ? '✓ Feita' : 'Marcar feita'}
           </button>
         </div>
       </div>
@@ -1345,18 +1377,56 @@ function togglePerguntaFeita(perguntaId) {
   renderizarPerguntasTriagem();
 }
 
+// ---------- RESPONDER (deriva sintoma) ----------
 function responderPergunta(perguntaId, respostaId) {
-  // Apenas marca como feita (Sim)
-  perguntasFeitas[perguntaId] = true;
+  const resp = bancoPerguntaRespostas.find(r => r.id === respostaId);
+  if (!resp) return;
+
+  const anterior = respostasPerguntasAtuais[perguntaId];
+  respostasPerguntasAtuais[perguntaId] = respostaId;
+
+  // Remove sintoma derivado anterior (se houver)
+  if (anterior) {
+    const respAnterior = bancoPerguntaRespostas.find(r => r.id === anterior);
+    if (respAnterior?.sintoma_derivado_id) {
+      const idx = sintomasSelecionadosIds.indexOf(respAnterior.sintoma_derivado_id);
+      // Só remove se esse sintoma não estiver sendo derivado por outra resposta ativa
+      if (idx >= 0) {
+        const derivadoPorOutra = Object.entries(respostasPerguntasAtuais)
+          .some(([pid, rid]) => pid !== perguntaId && rid === anterior);
+        if (!derivadoPorOutra) sintomasSelecionadosIds.splice(idx, 1);
+      }
+    }
+  }
+
+  // Adiciona sintoma derivado novo
+  if (resp.sintoma_derivado_id && !sintomasSelecionadosIds.includes(resp.sintoma_derivado_id)) {
+    sintomasSelecionadosIds.push(resp.sintoma_derivado_id);
+    const sint = bancoSintomas.find(s => s.id === resp.sintoma_derivado_id);
+    if (sint) mostrarToast(`➕ Sintoma derivado: ${sint.nome}`, 'sucesso');
+  }
+
+  renderizarTagsSintomas();
   renderizarPerguntasTriagem();
-  mostrarToast('Pergunta respondida!', 'sucesso');
+  processarTriagem();
 }
 
 function limparRespostaPergunta(perguntaId) {
-  delete perguntasFeitas[perguntaId];
+  const anterior = respostasPerguntasAtuais[perguntaId];
+  if (anterior) {
+    const respAnterior = bancoPerguntaRespostas.find(r => r.id === anterior);
+    if (respAnterior?.sintoma_derivado_id) {
+      const idx = sintomasSelecionadosIds.indexOf(respAnterior.sintoma_derivado_id);
+      if (idx >= 0) sintomasSelecionadosIds.splice(idx, 1);
+    }
+  }
+  delete respostasPerguntasAtuais[perguntaId];
+  renderizarTagsSintomas();
   renderizarPerguntasTriagem();
+  processarTriagem();
 }
 
+// ---------- VOZ NA BUSCA DE SINTOMAS ----------
 function ditarSintomaPorVoz(btnElement) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) return mostrarToast('Navegador não suporta reconhecimento de voz.', 'erro');
@@ -1372,17 +1442,17 @@ function ditarSintomaPorVoz(btnElement) {
   rec.onresult = (e) => {
     const texto = e.results[0][0].transcript;
     const input = document.getElementById('input-busca-sintoma');
-    if (!input) return;
     input.value = texto;
     input.focus();
     filtrarSugestoesSintomas();
-    document.getElementById('dropdown-sugestoes')?.classList.remove('hidden');
+    document.getElementById('dropdown-sugestoes').classList.remove('hidden');
   };
   rec.onend = () => { btnElement.innerHTML = original; btnElement.classList.remove('animate-pulse'); };
   rec.onerror = () => { btnElement.innerHTML = original; btnElement.classList.remove('animate-pulse'); mostrarToast('Não entendi. Tente novamente.', 'erro'); };
   rec.start();
 }
 
+// ---------- ADMIN: LISTA E FORM ----------
 function renderizarAdminPerguntas() {
   const el = document.getElementById('lista-admin-perguntas');
   if (!el) return;
@@ -1511,8 +1581,9 @@ async function excluirPergunta(id) {
   await sincronizarPerguntas();
 }
 
+// ---------- VÍNCULO PERGUNTA ↔ SINTOMA ----------
 function renderizarSelectsPerguntas() {
-  const selSint = document.getElementById('vinc-sintoma');
+  /*const selSint = document.getElementById('vinc-sintoma');
   const selPerg = document.getElementById('vinc-pergunta');
   if (selSint) {
     selSint.innerHTML = '<option value="">Selecione...</option>' +
@@ -1521,69 +1592,91 @@ function renderizarSelectsPerguntas() {
   if (selPerg) {
     selPerg.innerHTML = '<option value="">Selecione...</option>' +
       bancoPerguntas.map(p => `<option value="${p.id}">${p.red_flag ? '🚨 ' : ''}${p.texto}</option>`).join('');
-  }
+  }*/
 }
 
 async function vincularPerguntaSintoma(e) {
   e.preventDefault();
-  const sintoma_id = document.getElementById('vinc-sintoma').value;
-  const pergunta_id = document.getElementById('vinc-pergunta').value;
+  
+  // Pega o texto digitado nos inputs de autocomplete
+  const sintomaNome = document.getElementById('vinc-sintoma').value.trim();
+  const perguntaTexto = document.getElementById('vinc-pergunta').value.trim();
   const prioridade = parseInt(document.getElementById('vinc-prioridade').value) || 0;
-  if (!sintoma_id || !pergunta_id) return;
 
-  const { error } = await supabaseClient.from('sintoma_perguntas').insert([{ sintoma_id, pergunta_id, prioridade }]);
+  if (!sintomaNome || !perguntaTexto) return mostrarToast('Preencha o sintoma e a pergunta.', 'erro');
+
+  // Encontra os IDs reais correspondentes
+  const sintoma = bancoSintomas.find(s => s.nome === sintomaNome);
+  const pergunta = bancoPerguntas.find(p => p.texto === perguntaTexto);
+
+  if (!sintoma) return mostrarToast('Sintoma não encontrado. Selecione na lista de sugestões.', 'erro');
+  if (!pergunta) return mostrarToast('Pergunta não encontrada. Selecione na lista de sugestões.', 'erro');
+
+  // Salva no banco
+  const { error } = await supabaseClient.from('sintoma_perguntas').insert([{ 
+    sintoma_id: sintoma.id, 
+    pergunta_id: pergunta.id, 
+    prioridade 
+  }]);
+
   if (error) return mostrarToast('Erro: ' + error.message, 'erro');
-  mostrarToast('Pergunta vinculada ao sintoma.', 'sucesso');
+  
+  mostrarToast('Pergunta vinculada com sucesso!', 'sucesso');
+  
+  // Limpa os campos após salvar
+  document.getElementById('vinc-sintoma').value = '';
+  document.getElementById('vinc-pergunta').value = '';
+  
   await sincronizarPerguntas();
 }
 
-// =========================================================================
-// 11. LOCALIDADES — Cidade → Bairro → Rua → Nº
-// =========================================================================
-async function sincronizarLocalidades() {
-  try {
-    const [resCidades, resBairros] = await Promise.all([
-      comTimeout(supabaseClient.from('cidades').select('*').order('nome')),
-      comTimeout(supabaseClient.from('bairros').select('*').order('nome'))
-    ]);
-    if (resCidades.error) throw resCidades.error;
-    if (resBairros.error) throw resBairros.error;
-    bancoCidades = resCidades.data || [];
-    bancoBairrosLocalidades = resBairros.data || [];
-    localStorage.setItem('cobom_cache_cidades', JSON.stringify(bancoCidades));
-    localStorage.setItem('cobom_cache_bairros_loc', JSON.stringify(bancoBairrosLocalidades));
-  } catch (err) {
-    console.warn('Localidades: usando cache local.', err);
-    bancoCidades = JSON.parse(localStorage.getItem('cobom_cache_cidades') || '[]');
-    bancoBairrosLocalidades = JSON.parse(localStorage.getItem('cobom_cache_bairros_loc') || '[]');
-  }
-  renderizarTudoLocalidades();
-}
+    // =========================================================================
+    // 11. LOCALIDADES — Cidade → Bairro → Rua → Nº
+    // =========================================================================
+    async function sincronizarLocalidades() {
+      try {
+        const [resCidades, resBairros] = await Promise.all([
+          comTimeout(supabaseClient.from('cidades').select('*').order('nome')),
+          comTimeout(supabaseClient.from('bairros').select('*').order('nome'))
+        ]);
+        if (resCidades.error) throw resCidades.error;
+        if (resBairros.error) throw resBairros.error;
+        bancoCidades = resCidades.data || [];
+        bancoBairrosLocalidades = resBairros.data || [];
+        localStorage.setItem('cobom_cache_cidades', JSON.stringify(bancoCidades));
+        localStorage.setItem('cobom_cache_bairros_loc', JSON.stringify(bancoBairrosLocalidades));
+      } catch (err) {
+        console.warn('Localidades: usando cache local.', err);
+        bancoCidades = JSON.parse(localStorage.getItem('cobom_cache_cidades') || '[]');
+        bancoBairrosLocalidades = JSON.parse(localStorage.getItem('cobom_cache_bairros_loc') || '[]');
+      }
+      renderizarTudoLocalidades();
+    }
 
-async function carregarRuasDoBairro(bairroId) {
-  if (!bairroId) return [];
-  if (cacheRuas[bairroId]) return cacheRuas[bairroId];
-  const local = localStorage.getItem('cobom_ruas_' + bairroId);
-  if (local) {
-    try { const d = JSON.parse(local); cacheRuas[bairroId] = d; return d; } catch {}
-  }
-  try {
-    const { data, error } = await supabaseClient.from('ruas').select('*').eq('bairro_id', bairroId).order('nome');
-    if (error) throw error;
-    cacheRuas[bairroId] = data || [];
-    localStorage.setItem('cobom_ruas_' + bairroId, JSON.stringify(data || []));
-    return data || [];
-  } catch (err) {
-    console.warn('Erro ruas:', err);
-    cacheRuas[bairroId] = [];
-    return [];
-  }
-}
+    async function carregarRuasDoBairro(bairroId) {
+      if (!bairroId) return [];
+      if (cacheRuas[bairroId]) return cacheRuas[bairroId];
+      const local = localStorage.getItem('cobom_ruas_' + bairroId);
+      if (local) {
+        try { const d = JSON.parse(local); cacheRuas[bairroId] = d; return d; } catch {}
+      }
+      try {
+        const { data, error } = await supabaseClient.from('ruas').select('*').eq('bairro_id', bairroId).order('nome');
+        if (error) throw error;
+        cacheRuas[bairroId] = data || [];
+        localStorage.setItem('cobom_ruas_' + bairroId, JSON.stringify(data || []));
+        return data || [];
+      } catch (err) {
+        console.warn('Erro ruas:', err);
+        cacheRuas[bairroId] = [];
+        return [];
+      }
+    }
 
-function invalidarCacheRuas(bairroId) {
-  delete cacheRuas[bairroId];
-  localStorage.removeItem('cobom_ruas_' + bairroId);
-}
+    function invalidarCacheRuas(bairroId) {
+      delete cacheRuas[bairroId];
+      localStorage.removeItem('cobom_ruas_' + bairroId);
+    }
 
 function renderizarTudoLocalidades() {
   renderizarAdminCidades();
@@ -1591,30 +1684,30 @@ function renderizarTudoLocalidades() {
   renderizarAdminRuas();
 }
 
-function togglePainelEstruturado() {
-  const painel = document.getElementById('painel-endereco-estruturado');
-  const icone = document.getElementById('icone-toggle-estruturado');
-  if (!painel) return;
-  const abrindo = painel.classList.contains('hidden');
-  painel.classList.toggle('hidden');
-  if (icone) icone.textContent = abrindo ? '▲' : '▼';
-  localStorage.setItem('cobom_estruturado_aberto', abrindo ? '1' : '0');
-}
+    // ---------- PAINEL ESTRUTURADO ----------
+    function togglePainelEstruturado() {
+      const painel = document.getElementById('painel-endereco-estruturado');
+      const icone = document.getElementById('icone-toggle-estruturado');
+      if (!painel) return;
+      const abrindo = painel.classList.contains('hidden');
+      painel.classList.toggle('hidden');
+      if (icone) icone.textContent = abrindo ? '▲' : '▼';
+      localStorage.setItem('cobom_estruturado_aberto', abrindo ? '1' : '0');
+    }
 
-function restaurarEstadoPainelEstruturado() {
-  if (localStorage.getItem('cobom_estruturado_aberto') === '1') {
-    document.getElementById('painel-endereco-estruturado')?.classList.remove('hidden');
-    const ic = document.getElementById('icone-toggle-estruturado');
-    if (ic) ic.textContent = '▲';
-  }
-}
+    function restaurarEstadoPainelEstruturado() {
+      if (localStorage.getItem('cobom_estruturado_aberto') === '1') {
+        document.getElementById('painel-endereco-estruturado')?.classList.remove('hidden');
+        const ic = document.getElementById('icone-toggle-estruturado');
+        if (ic) ic.textContent = '▲';
+      }
+    }
 
 async function onInputCidadeEstruturada() {
   const inpCid = document.getElementById('est-cidade');
   const inpBai = document.getElementById('est-bairro');
   const dlBai = document.getElementById('datalist-bairros');
   const badge = document.getElementById('badge-cidade-ativa');
-  if (!inpCid) return;
 
   const cidade = resolverCidadePorNome(inpCid.value);
 
@@ -1652,6 +1745,7 @@ async function onInputCidadeEstruturada() {
 
   if (inpBai) inpBai.disabled = false;
 
+  // Se já tinha bairro digitado, tenta reconciliar
   if (inpBai && inpBai.value) {
     await onInputBairroEstruturado();
   } else {
@@ -1660,20 +1754,19 @@ async function onInputCidadeEstruturada() {
 }
 
 async function onInputBairroEstruturado() {
-  const cidade = resolverCidadePorNome(document.getElementById('est-cidade')?.value);
+  const cidade = resolverCidadePorNome(document.getElementById('est-cidade').value);
   const inpBai = document.getElementById('est-bairro');
   const inpRua = document.getElementById('est-rua');
   const inpNum = document.getElementById('est-numero');
-  if (!inpBai) return;
 
   if (!cidade) { limparRuaNumero(); return; }
   const bairro = resolverBairroPorNome(inpBai.value, cidade.id);
   if (!bairro) { limparRuaNumero(); return; }
 
-  if (inpRua) inpRua.disabled = false;
-  if (inpNum) inpNum.disabled = false;
+  inpRua.disabled = false;
+  inpNum.disabled = false;
 
-  const ruas = await carregarRuasDoBairro(bairro.id);
+const ruas = await carregarRuasDoBairro(bairro.id);
   const datalist = document.getElementById('datalist-ruas');
   if (datalist) {
     const opts = [];
@@ -1688,28 +1781,27 @@ async function onInputBairroEstruturado() {
   onInputRuaEstruturada();
 }
 
-function limparRuaNumero() {
-  const ir = document.getElementById('est-rua');
-  const inum = document.getElementById('est-numero');
-  if (ir) { ir.value = ''; ir.disabled = true; }
-  if (inum) { inum.value = ''; inum.disabled = true; }
-}
+    function limparRuaNumero() {
+      const ir = document.getElementById('est-rua');
+      const inum = document.getElementById('est-numero');
+      if (ir) { ir.value = ''; ir.disabled = true; }
+      if (inum) { inum.value = ''; inum.disabled = true; }
+    }
 
-function marcarSemNumero() {
-  const inum = document.getElementById('est-numero');
-  if (!inum) return;
-  inum.value = 'S/N';
-  onInputRuaEstruturada();
-}
+    function marcarSemNumero() {
+      const inum = document.getElementById('est-numero');
+      if (!inum) return;
+      inum.value = 'S/N';
+      onInputRuaEstruturada();
+    }
 
 function onInputRuaEstruturada() {
-  const cidade = resolverCidadePorNome(document.getElementById('est-cidade')?.value);
+  const cidade = resolverCidadePorNome(document.getElementById('est-cidade').value);
   const inpBai = document.getElementById('est-bairro');
-  if (!inpBai) return;
   const bairro = cidade ? resolverBairroPorNome(inpBai.value, cidade.id) : null;
 
-  const rua = (document.getElementById('est-rua')?.value || '').trim();
-  const num = (document.getElementById('est-numero')?.value || '').trim();
+  const rua = document.getElementById('est-rua').value.trim();
+  const num = document.getElementById('est-numero').value.trim();
 
   if (!cidade && !bairro) return;
 
@@ -1718,6 +1810,7 @@ function onInputRuaEstruturada() {
     localStorage.setItem('cobom_bairros_uso', JSON.stringify(usoBairrosLocais));
   }
 
+  // ★ Canonicaliza a rua: se "sao joao" casar com "São João" no cache, usa a versão correta
   let ruaFinal = rua;
   if (bairro && cacheRuas[bairro.id] && rua) {
     const match = cacheRuas[bairro.id].find(r =>
@@ -1733,8 +1826,7 @@ function onInputRuaEstruturada() {
   if (cidade) partes.push(`${cidade.nome} - ${cidade.uf}`);
 
   if (partes.length === 0) return;
-  const el = document.getElementById('solicitante-end');
-  if (el) el.value = partes.join(', ');
+  document.getElementById('solicitante-end').value = partes.join(', ');
   atualizarRelatorio();
 }
 
@@ -1748,67 +1840,71 @@ function limparEnderecoEstruturado() {
   limparRuaNumero();
 }
 
-function trocarTabLocalidade(tab) {
-  ['cidades', 'bairros', 'ruas'].forEach(t => {
-    const panel = document.getElementById(`loc-panel-${t}`);
-    const btn = document.getElementById(`tab-loc-${t}`);
-    if (!panel || !btn) return;
-    if (t === tab) {
-      panel.classList.remove('hidden');
-      btn.className = "text-xs font-bold px-3 py-1.5 rounded bg-red-600 text-white";
-    } else {
-      panel.classList.add('hidden');
-      btn.className = "text-xs font-bold px-3 py-1.5 rounded bg-slate-200 dark:bg-slate-700";
+    // ---------- ADMIN TABS ----------
+    function trocarTabLocalidade(tab) {
+      ['cidades', 'bairros', 'ruas'].forEach(t => {
+        const panel = document.getElementById(`loc-panel-${t}`);
+        const btn = document.getElementById(`tab-loc-${t}`);
+        if (!panel || !btn) return;
+        if (t === tab) {
+          panel.classList.remove('hidden');
+          btn.className = "text-xs font-bold px-3 py-1.5 rounded bg-red-600 text-white";
+        } else {
+          panel.classList.add('hidden');
+          btn.className = "text-xs font-bold px-3 py-1.5 rounded bg-slate-200 dark:bg-slate-700";
+        }
+      });
+      if (tab === 'cidades') renderizarAdminCidades();
+      if (tab === 'bairros') renderizarAdminBairros();
+      if (tab === 'ruas') { renderizarAdminRuas(); }
     }
-  });
-  if (tab === 'cidades') renderizarAdminCidades();
-  if (tab === 'bairros') renderizarAdminBairros();
-  if (tab === 'ruas') { renderizarAdminRuas(); }
-}
 
-async function salvarCidade(e) {
-  e.preventDefault();
-  const nome = document.getElementById('cad-cidade-nome').value.trim();
-  const uf = document.getElementById('cad-cidade-uf').value.trim().toUpperCase();
+    // ---------- ADMIN: CIDADES ----------
+    async function salvarCidade(e) {
+      e.preventDefault();
+      const nome = document.getElementById('cad-cidade-nome').value.trim();
+      const uf = document.getElementById('cad-cidade-uf').value.trim().toUpperCase();
 
-  const dup = verificarCidadeDuplicada(nome, uf);
-  if (dup) return mostrarToast(`Já existe: ${dup.nome} - ${dup.uf}`, 'aviso');
+      const dup = verificarCidadeDuplicada(nome, uf);
+      if (dup) return mostrarToast(`Já existe: ${dup.nome} - ${dup.uf}`, 'aviso');
 
-  if (!nome || !uf) return;
-  const { error } = await supabaseClient.from('cidades').insert([{ nome, uf }]);
-  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
-  document.getElementById('cad-cidade-nome').value = '';
-  document.getElementById('cad-cidade-uf').value = '';
-  mostrarToast(`Cidade "${nome}" cadastrada.`, 'sucesso');
-  await sincronizarLocalidades();
-}
+      if (!nome || !uf) return;
+      const { error } = await supabaseClient.from('cidades').insert([{ nome, uf }]);
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      document.getElementById('cad-cidade-nome').value = '';
+      document.getElementById('cad-cidade-uf').value = '';
+      mostrarToast(`Cidade "${nome}" cadastrada.`, 'sucesso');
+      await sincronizarLocalidades();
+    }
 
-async function excluirCidade(id) {
-  const c = bancoCidades.find(x => x.id === id);
-  if (!c) return;
-  if (!confirm(`Excluir "${c.nome} - ${c.uf}"? Todos os bairros e ruas desta cidade serão apagados.`)) return;
-  const { error } = await supabaseClient.from('cidades').delete().eq('id', id);
-  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
-  mostrarToast('Cidade excluída.', 'sucesso');
-  await sincronizarLocalidades();
-}
+    async function excluirCidade(id) {
+      const c = bancoCidades.find(x => x.id === id);
+      if (!c) return;
+      if (!confirm(`Excluir "${c.nome} - ${c.uf}"? Todos os bairros e ruas desta cidade serão apagados.`)) return;
+      const { error } = await supabaseClient.from('cidades').delete().eq('id', id);
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      mostrarToast('Cidade excluída.', 'sucesso');
+      await sincronizarLocalidades();
+    }
 
-function renderizarAdminCidades() {
-  const el = document.getElementById('lista-admin-cidades');
-  if (!el) return;
-  if (bancoCidades.length === 0) {
-    el.innerHTML = '<p class="text-slate-400 italic p-2">Nenhuma cidade cadastrada. Comece cadastrando a sua cidade acima.</p>';
-    return;
-  }
-  el.innerHTML = bancoCidades.map(c => {
-    const q = bancoBairrosLocalidades.filter(b => b.cidade_id === c.id).length;
-    return `
-      <div class="flex justify-between items-center py-1.5 px-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
-        <span><strong>${c.nome} - ${c.uf}</strong> <span class="text-slate-400 ml-1">(${q} bairros)</span></span>
-        <button onclick="excluirCidade('${c.id}')" class="text-red-500 font-black px-2">✕</button>
-      </div>`;
-  }).join('');
-}
+    function renderizarAdminCidades() {
+      const el = document.getElementById('lista-admin-cidades');
+      if (!el) return;
+      if (bancoCidades.length === 0) {
+        el.innerHTML = '<p class="text-slate-400 italic p-2">Nenhuma cidade cadastrada. Comece cadastrando a sua cidade acima.</p>';
+        return;
+      }
+      el.innerHTML = bancoCidades.map(c => {
+        const q = bancoBairrosLocalidades.filter(b => b.cidade_id === c.id).length;
+        return `
+          <div class="flex justify-between items-center py-1.5 px-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
+            <span><strong>${c.nome} - ${c.uf}</strong> <span class="text-slate-400 ml-1">(${q} bairros)</span></span>
+            <button onclick="excluirCidade('${c.id}')" class="text-red-500 font-black px-2">✕</button>
+          </div>`;
+      }).join('');
+    }
+
+    // ---------- ADMIN: BAIRROS ----------
 
 function popularDatalistBairrosRua() {
   const cidade = resolverCidadePorNome(document.getElementById('cad-rua-cidade')?.value);
@@ -1843,43 +1939,44 @@ async function salvarBairro(e) {
   await sincronizarLocalidades();
 }
 
-async function excluirBairro(id) {
-  const b = bancoBairrosLocalidades.find(x => x.id === id);
-  if (!b) return;
-  if (!confirm(`Excluir o bairro "${b.nome}"? Todas as ruas dele serão apagadas.`)) return;
-  const { error } = await supabaseClient.from('bairros').delete().eq('id', id);
-  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
-  invalidarCacheRuas(id);
-  mostrarToast('Bairro excluído.', 'sucesso');
-  await sincronizarLocalidades();
-}
+    async function excluirBairro(id) {
+      const b = bancoBairrosLocalidades.find(x => x.id === id);
+      if (!b) return;
+      if (!confirm(`Excluir o bairro "${b.nome}"? Todas as ruas dele serão apagadas.`)) return;
+      const { error } = await supabaseClient.from('bairros').delete().eq('id', id);
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      invalidarCacheRuas(id);
+      mostrarToast('Bairro excluído.', 'sucesso');
+      await sincronizarLocalidades();
+    }
 
-function renderizarAdminBairros() {
-  const el = document.getElementById('lista-admin-bairros');
-  if (!el) return;
-  if (bancoBairrosLocalidades.length === 0) {
-    el.innerHTML = '<p class="text-slate-400 italic p-2">Nenhum bairro cadastrado.</p>';
-    return;
-  }
-  const ord = [...bancoBairrosLocalidades].sort((a, b) => {
-    const ca = bancoCidades.find(c => c.id === a.cidade_id)?.nome || '';
-    const cb = bancoCidades.find(c => c.id === b.cidade_id)?.nome || '';
-    if (ca !== cb) return ca.localeCompare(cb, 'pt-BR');
-    return a.nome.localeCompare(b.nome, 'pt-BR');
-  });
-  el.innerHTML = ord.map(b => {
-    const cid = bancoCidades.find(c => c.id === b.cidade_id);
-    return `
-      <div class="flex justify-between items-center py-1.5 px-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
-        <span>
-          <span class="text-[10px] font-black uppercase bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded mr-1">${cid ? cid.nome + ' - ' + cid.uf : '?'}</span>
-          <strong>${b.nome}</strong>
-        </span>
-        <button onclick="excluirBairro('${b.id}')" class="text-red-500 font-black px-2">✕</button>
-      </div>`;
-  }).join('');
-}
+    function renderizarAdminBairros() {
+      const el = document.getElementById('lista-admin-bairros');
+      if (!el) return;
+      if (bancoBairrosLocalidades.length === 0) {
+        el.innerHTML = '<p class="text-slate-400 italic p-2">Nenhum bairro cadastrado.</p>';
+        return;
+      }
+      const ord = [...bancoBairrosLocalidades].sort((a, b) => {
+        const ca = bancoCidades.find(c => c.id === a.cidade_id)?.nome || '';
+        const cb = bancoCidades.find(c => c.id === b.cidade_id)?.nome || '';
+        if (ca !== cb) return ca.localeCompare(cb, 'pt-BR');
+        return a.nome.localeCompare(b.nome, 'pt-BR');
+      });
+      el.innerHTML = ord.map(b => {
+        const cid = bancoCidades.find(c => c.id === b.cidade_id);
+        return `
+          <div class="flex justify-between items-center py-1.5 px-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded">
+            <span>
+              <span class="text-[10px] font-black uppercase bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded mr-1">${cid ? cid.nome + ' - ' + cid.uf : '?'}</span>
+              <strong>${b.nome}</strong>
+            </span>
+            <button onclick="excluirBairro('${b.id}')" class="text-red-500 font-black px-2">✕</button>
+          </div>`;
+      }).join('');
+    }
 
+    // ---------- ADMIN: RUAS ----------
 async function salvarRua(e) {
   e.preventDefault();
   const cidade = resolverCidadePorNome(document.getElementById('cad-rua-cidade').value);
@@ -1935,15 +2032,15 @@ async function importarBairrosEmMassa() {
   await sincronizarLocalidades();
 }
 
-async function excluirRua(id, bairroId) {
-  if (!confirm('Excluir esta rua?')) return;
-  const { error } = await supabaseClient.from('ruas').delete().eq('id', id);
-  if (error) return mostrarToast('Erro: ' + error.message, 'erro');
-  invalidarCacheRuas(bairroId);
-  await carregarRuasDoBairro(bairroId);
-  mostrarToast('Rua excluída.', 'sucesso');
-  renderizarAdminRuas();
-}
+    async function excluirRua(id, bairroId) {
+      if (!confirm('Excluir esta rua?')) return;
+      const { error } = await supabaseClient.from('ruas').delete().eq('id', id);
+      if (error) return mostrarToast('Erro: ' + error.message, 'erro');
+      invalidarCacheRuas(bairroId);
+      await carregarRuasDoBairro(bairroId);
+      mostrarToast('Rua excluída.', 'sucesso');
+      renderizarAdminRuas();
+    }
 
 async function renderizarAdminRuas() {
   const el = document.getElementById('lista-admin-ruas');
@@ -1976,7 +2073,7 @@ function resolverCidadePorNome(texto) {
       || bancoCidades.find(c => normalizarTexto(c.nome) === t);
 }
 
-// ---------- AUTOCOMPLETE CUSTOMIZADO ----------
+// ---------- AUTOCOMPLETE CUSTOMIZADO (filtro por normalização) ----------
 const providersAutocomplete = {
   'est-cidade': () => bancoCidades.map(c => ({ texto: `${c.nome} - ${c.uf}` })),
   'est-bairro': () => {
@@ -2011,6 +2108,8 @@ const providersAutocomplete = {
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
       .map(b => ({ texto: b.nome }));
   },
+  'vinc-sintoma': () => bancoSintomas.map(s => ({ texto: s.nome, label: `${s.red_flag ? '🚨 ' : ''}[${s.categoria}] ${s.nome}` })),
+  'vinc-pergunta': () => bancoPerguntas.map(p => ({ texto: p.texto, label: `${p.red_flag ? '🚨 ' : ''}${p.texto}` })),
 };
 
 function criarAutocomplete(inputId) {
@@ -2158,7 +2257,9 @@ function resolverBairroPorNome(texto, cidadeId) {
   );
 }
 
-function parseListaEmMassa(texto) {
+  function parseListaEmMassa(texto) {
+  // Aceita newline OU ponto-e-vírgula como separador
+  // Remove espaços extras e ignora linhas vazias
   return texto
     .split(/[\n;]+/)
     .map(s => s.trim())
@@ -2185,6 +2286,7 @@ function abrirLocalizacaoNovaPagina() {
 
   let url = link;
 
+  // Sem link GPS → usa o endereço para gerar busca no Google Maps
   if (!url && endereco) {
     url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`;
   }
@@ -2193,6 +2295,8 @@ function abrirLocalizacaoNovaPagina() {
     return mostrarToast('Sem localização para abrir. Cole um link GPS ou preencha o endereço.', 'aviso');
   }
 
+  // Se o conteúdo não for URL reconhecida (ex: colaram "coordenadas -23.5, -46.6"),
+  // trata como busca do Maps em vez de abrir uma URL inválida
   if (!/^https?:\/\//i.test(url) && !/^geo:/i.test(url)) {
     url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(url)}`;
   }
