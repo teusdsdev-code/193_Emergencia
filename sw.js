@@ -1,10 +1,20 @@
 /* Service Worker — CBMGO 193 */
-const CACHE = 'cbmgo193-v2';
+const CACHE = 'cbmgo193-v1.0.8';
 const ASSETS = [
   './',
+  './shared.css',
+  './shared.js',
+  './ac4.css',          // ← NOVO
+  './ac4.js',           // ← NOVO
+  './index.css',      // ← NOVO
+  './index.js',       // ← NOVO
   './index.html',
   './triagem.html',
+  './triagem.css',      // ← NOVO
+  './triagem.js',       // ← NOVO
+  './ac4.html',
   './manifest.json',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700;800&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdn.tailwindcss.com',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
