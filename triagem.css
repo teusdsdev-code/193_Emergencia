@@ -1,124 +1,24 @@
 /* ============================================================
-   Triagem - Design Moderno e Correção de Conflitos
+   Estilos específicos da Triagem (Impressão e Toast)
    ============================================================ */
 
-/* Reseta TODOS os inputs e botões da Triagem para o padrão Tailwind */
-#view-triagem input, #view-triagem select, #view-triagem textarea,
-#view-viaturas input, #view-viaturas select, #view-viaturas textarea,
-#view-cadastros input, #view-cadastros select, #view-cadastros textarea {
-  margin: 0 !important;
-  width: 100% !important;
-  height: 42px !important;
-  min-height: 42px !important;
-  padding: 0 12px !important;
-  border-radius: 8px !important;
-  font-size: 14px !important;
-  border: 1px solid #cbd5e1 !important; /* slate-300 */
-  background-color: #ffffff !important;
-  color: #1e293b !important;
-  transition: all 0.2s !important;
-}
-
-html.dark #view-triagem input, html.dark #view-triagem select, html.dark #view-triagem textarea,
-html.dark #view-viaturas input, html.dark #view-viaturas select, html.dark #view-viaturas textarea,
-html.dark #view-cadastros input, html.dark #view-cadastros select, html.dark #view-cadastros textarea {
-  border: 1px solid #475569 !important; /* slate-600 */
-  background-color: #1e293b !important; /* slate-800 */
-  color: #f8fafc !important;
-}
-
-/* Foco nos inputs */
-#view-triagem input:focus, #view-cadastros input:focus,
-#view-triagem select:focus, #view-cadastros select:focus {
-  outline: none !important;
-  border-color: #dc2626 !important; /* fire-600 */
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2) !important;
-}
-
-#view-triagem textarea, #view-cadastros textarea {
-  height: auto !important;
-  min-height: 80px !important;
-  padding: 12px !important;
-}
-
-/* Reseta Botões para não ficarem gigantes */
-#view-triagem button, #view-viaturas button, #view-cadastros button {
-  margin: 0 !important;
-  height: 42px !important;
-  min-height: 42px !important;
-  padding: 0 16px !important;
-  border-radius: 8px !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 8px !important;
-  width: auto !important;
-}
-
-/* Botões pequenos (como + e - das vítimas) */
-#view-triagem button.btn-icon {
-  width: 42px !important;
-  padding: 0 !important;
-}
-
-/* Checkboxes */
-#view-cadastros input[type="checkbox"] {
-  width: 20px !important;
-  height: 20px !important;
-  min-height: 20px !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  cursor: pointer;
-  accent-color: #dc2626 !important;
-}
-
-/* ============================================================
-   Correções Específicas de Layout
-   ============================================================ */
-
-/* Grid de sintomas no banco de dados */
-#checkboxes-sintomas-cadastro {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  gap: 8px !important;
-}
-
-@media (max-width: 640px) {
-  #checkboxes-sintomas-cadastro {
-    grid-template-columns: 1fr !important;
+@media print {
+  html, body { background: #fff !important; }
+  body * { visibility: hidden; }
+  #area-relatorio, #area-relatorio * {
+    visibility: visible;
+    color: #000 !important;
+    background-color: #fff !important;
   }
+  #area-relatorio { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: none !important; }
+  .no-print { display: none !important; }
 }
 
-/* Cartão de cada sintoma */
-#checkboxes-sintomas-cadastro label {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  padding: 10px 12px !important;
-  background: #f8fafc !important;
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 8px !important;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 13px !important;
-  color: #334155 !important;
-  line-height: 1.3 !important;
+@keyframes slideInToast { 
+  from { transform: translateX(120%); opacity: 0; } 
+  to { transform: translateX(0); opacity: 1; } 
 }
 
-html.dark #checkboxes-sintomas-cadastro label {
-  background: #1e293b !important;
-  border-color: #334155 !important;
-  color: #e2e8f0 !important;
-}
-
-#checkboxes-sintomas-cadastro label:hover {
-  border-color: #dc2626 !important;
-  background: #fef2f2 !important;
-}
-
-html.dark #checkboxes-sintomas-cadastro label:hover {
-  border-color: #f87171 !important;
-  background: rgba(220, 38, 38, 0.1) !important;
+.toast-cobom { 
+  animation: slideInToast .25s ease-out; 
 }
