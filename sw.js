@@ -1,5 +1,5 @@
 /* Service Worker — CBMGO 193 */
-const CACHE = 'cbmgo193-v1.0.8';
+const CACHE = 'cbmgo193-v1.0.12';
 const ASSETS = [
   './',
   './shared.css',
