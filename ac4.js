@@ -332,13 +332,14 @@ async function apiJSONP(path) {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (!session) return { success: false, message: 'Não autenticado' };
       
+      // OTIMIZAÇÃO: Cria apenas 1 registro por dia, com a quantidade total de vagas
       const registros = config.dias.map(d => ({
         local: config.local, data: d, horario: config.horario,
         dia: config.vagasIndividuais.find(v => v.date === d)?.dayOfWeek || '',
         especializacao: config.especializacao,
         valores: config.vagasIndividuais.find(v => v.date === d)?.value || '',
         horas: parseInt(config.horas), 
-        vagas_qtd: parseInt(config.vagas) || 1,
+        vagas_qtd: parseInt(config.vagas) || 1, // <--- Salva a qtd correta
         observacoes: config.observacoes, criado_por: session.user.id
       }));
       
@@ -372,6 +373,7 @@ async function apiJSONP(path) {
       const idVaga = parseInt(qs.get('idVaga'));
       if (!idVaga) return { success: false, message: 'ID da vaga inválido.' };
       
+      // 1) Busca a vaga (incluindo a qtd total de vagas)
       const { data: vaga, error: errVaga } = await supabaseClient
         .from('vagas')
         .select('especializacao, data, vagas_qtd')
@@ -380,10 +382,12 @@ async function apiJSONP(path) {
       
       if (errVaga || !vaga) return { success: false, message: 'Vaga não encontrada.' };
       
+      // 2) Valida expiração
       if (vaga.data && vaga.data < new Date().toISOString().slice(0, 10)) {
         return { success: false, message: 'Esta vaga já expirou.' };
       }
       
+      // 3) Verifica se a vaga já encheu
       const { count, error: errCount } = await supabaseClient
         .from('candidaturas')
         .select('*', { count: 'exact', head: true })
@@ -396,12 +400,14 @@ async function apiJSONP(path) {
         return { success: false, message: 'Vagas esgotadas para esta escala.' };
       }
       
+      // 4) Verifica especialidade
       const { data: esps } = await supabaseClient
         .from('usuarios_especialidades')
         .select('cursos(nome)')
         .eq('usuario_id', session.user.id);
       const temEsp = (esps || []).some(e => e.cursos?.nome === vaga.especializacao);
       
+      // 5) Insere a candidatura
       const { error } = await supabaseClient.from('candidaturas').insert([{
         usuario_id: session.user.id,
         vaga_id: idVaga,
