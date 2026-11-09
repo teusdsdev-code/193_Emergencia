@@ -8,7 +8,7 @@
     let bancoSintomas = [];
     let bancoDiagnosticos = [];
     let bancoViaturas = [];
-    let guarnicoesMemoria = JSON.parse(localStorage.getItem('cobom_guarnicoes_memoria') || '{}');
+    let bancoGuarnicoes = [];
 
     let naturezaSelecionada = 'TODAS';
     let sintomasSelecionadosIds = [];
@@ -257,13 +257,14 @@ function normalizarTexto(s) {
         badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-slate-900";
         badge.innerText = "🔄 Sincronizando...";
 
-        const [resSintomas, resDiagnosticos, resViaturas] = await Promise.all([
-          comTimeout(supabaseClient.from('sintomas').select('*').order('nome')),
-          comTimeout(supabaseClient.from('diagnosticos').select('*, diagnostico_sintomas(sintoma_id)').order('titulo')),
-          comTimeout(supabaseClient.from('viaturas').select('*').order('unidade').order('prefixo'))
-        ]);
+        const [resSintomas, resDiagnosticos, resViaturas, resGuarnicoes] = await Promise.all([
+        comTimeout(supabaseClient.from('sintomas').select('*').order('nome')),
+        comTimeout(supabaseClient.from('diagnosticos').select('*, diagnostico_sintomas(sintoma_id)').order('titulo')),
+        comTimeout(supabaseClient.from('viaturas').select('*').order('unidade').order('prefixo')),
+        comTimeout(supabaseClient.from('guarnicoes').select('*')) // NOVO AQUI
+      ]);
 
-        const houveErro = resSintomas.error || resDiagnosticos.error || resViaturas.error;
+        const houveErro = resSintomas.error || resDiagnosticos.error || resViaturas.error || resGuarnicoes.error;
 
         if (resSintomas.error)     console.warn('sintomas:', resSintomas.error.message);
         if (resDiagnosticos.error) console.warn('diagnosticos:', resDiagnosticos.error.message);
@@ -278,15 +279,16 @@ function normalizarTexto(s) {
         }
 
         bancoSintomas = (resSintomas.data || []).sort((a, b) => (b.red_flag ? 1 : 0) - (a.red_flag ? 1 : 0));
-        bancoDiagnosticos = (resDiagnosticos.data || []).map(d => ({
-          ...d,
+        bancoDiagnosticos = (resDiagnosticos.data || []).map(d => ({...d,
           sintomas_ids: (d.diagnostico_sintomas || []).map(ds => ds.sintoma_id)
         }));
         bancoViaturas = resViaturas.data || [];
+        bancoGuarnicoes = resGuarnicoes.data || [];
 
         localStorage.setItem('cobom_cache_sintomas', JSON.stringify(bancoSintomas));
         localStorage.setItem('cobom_cache_diagnosticos', JSON.stringify(bancoDiagnosticos));
         localStorage.setItem('cobom_cache_viaturas', JSON.stringify(bancoViaturas));
+        localStorage.setItem('cobom_cache_guarnicoes', JSON.stringify(bancoGuarnicoes));
 
         const agora = new Date().toLocaleString('pt-BR');
         localStorage.setItem('cobom_cache_data', agora);
@@ -724,13 +726,13 @@ function verificarRuaDuplicada(nome, bairroId) {
     }
 
     function salvarGuarnicoesNaMemoria() {
-      localStorage.setItem('cobom_guarnicoes_memoria', JSON.stringify(guarnicoesMemoria));
+      /*localStorage.setItem('cobom_guarnicoes_memoria', JSON.stringify(guarnicoesMemoria));
       renderizarViaturasEGuarnicao();
       renderizarSelecaoViaturasTriagem();
-      atualizarRelatorio();
+      atualizarRelatorio();*/
     }
 
-    function adicionarMilitarNaViatura(event, viaturaId) {
+    async function adicionarMilitarNaViatura(event, viaturaId) {
       event.preventDefault();
       const inputNome = document.getElementById(`mil-nome-${viaturaId}`);
       const inputTel = document.getElementById(`mil-tel-${viaturaId}`);
@@ -738,107 +740,84 @@ function verificarRuaDuplicada(nome, bairroId) {
       const tel = inputTel.value.replace(/\D/g, '');
 
       if (!nome || tel.length < 10) return mostrarToast('Informe Nome e WhatsApp com DDD.', 'erro');
-      if (!guarnicoesMemoria[viaturaId]) guarnicoesMemoria[viaturaId] = [];
-      guarnicoesMemoria[viaturaId].push({ id: 'm_' + Date.now(), nome, tel });
+      
+      const { error } = await supabaseClient.from('guarnicoes').insert([{
+        viatura_id: viaturaId,
+        nome: nome,
+        telefone: tel
+      }]);
+
+      if (error) return mostrarToast('Erro ao salvar militar: ' + error.message, 'erro');
 
       inputNome.value = '';
       inputTel.value = '';
       mostrarToast(`${nome} escalado.`, 'sucesso');
-      salvarGuarnicoesNaMemoria();
+      await sincronizarComSupabase(false);
     }
 
-    function removerMilitarIndividual(viaturaId, militarId) {
-      guarnicoesMemoria[viaturaId] = (guarnicoesMemoria[viaturaId] || []).filter(m => m.id !== militarId);
-      salvarGuarnicoesNaMemoria();
+    async function removerMilitarIndividual(viaturaId, militarId) {
+      const { error } = await supabaseClient.from('guarnicoes').delete().eq('id', militarId);
+      if (error) return mostrarToast('Erro ao remover: ' + error.message, 'erro');
+      mostrarToast('Militar removido da guarnição.', 'sucesso');
+      await sincronizarComSupabase(false);
     }
 
-    function limparGuarnicaoDaViatura(viaturaId) {
+    async function limparGuarnicaoDaViatura(viaturaId) {
       if (!confirm('Limpar guarnição desta viatura?')) return;
-      guarnicoesMemoria[viaturaId] = [];
-      salvarGuarnicoesNaMemoria();
+      const { error } = await supabaseClient.from('guarnicoes').delete().eq('viatura_id', viaturaId);
+      if (error) return mostrarToast('Erro ao limpar: ' + error.message, 'erro');
+      mostrarToast('Guarnição limpa.', 'sucesso');
+      await sincronizarComSupabase(false);
     }
 
-    function limparTodasGuarnicoes() {
+    async function limparTodasGuarnicoes() {
       if (!confirm('Limpar TODAS as guarnições para novo turno?')) return;
-      guarnicoesMemoria = {};
-      salvarGuarnicoesNaMemoria();
+      const { error } = await supabaseClient.from('guarnicoes').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Deleta todos
+      if (error) return mostrarToast('Erro ao limpar: ' + error.message, 'erro');
       mostrarToast('Todas as guarnições foram limpas.', 'sucesso');
+      await sincronizarComSupabase(false);
     }
 
     function renderizarViaturasEGuarnicao() {
       const container = document.getElementById('lista-cards-viaturas');
-      if (bancoViaturas.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-2">Nenhuma viatura cadastrada.</p>`;
-        return;
-      }
+      if (bancoViaturas.length === 0) { /* ... */ return; }
 
       container.innerHTML = bancoViaturas.map(vtr => {
-        const militares = guarnicoesMemoria[vtr.id] || [];
+        // MUDOU AQUI: Filtra do banco global
+        const militares = bancoGuarnicoes.filter(g => g.viatura_id === vtr.id); 
+        
         return `
           <div class="border dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-900/60 flex flex-col justify-between space-y-3">
-            <div>
-              <div class="flex justify-between items-start border-b dark:border-slate-700 pb-2">
-                <div>
-                  <span class="text-[10px] font-black uppercase bg-red-700 text-white px-2 py-0.5 rounded">${vtr.unidade}</span>
-                  <h3 class="font-black text-base mt-1">${vtr.prefixo}</h3>
-                  <p class="text-[11px] text-slate-500">${vtr.tipo}</p>
-                </div>
-                <div class="flex items-center space-x-1">
-                  <button onclick="limparGuarnicaoDaViatura('${vtr.id}')" class="text-[11px] bg-amber-500/20 text-amber-500 px-2 py-1 rounded font-bold">🧹 Limpar</button>
-                  <button onclick="excluirViatura('${vtr.id}')" class="text-red-500 p-1">🗑️</button>
-                </div>
-              </div>
-
+            <!-- ... -->
               <div class="mt-3 space-y-1.5">
                 <span class="text-[11px] font-bold uppercase text-slate-400">Guarnição (${militares.length}):</span>
                 ${militares.length === 0
-                  ? `<p class="text-xs text-slate-400 italic">Sem militares na memória.</p>`
+                  ? `<p class="text-xs text-slate-400 italic">Sem militares.</p>`
                   : `<ul class="space-y-1">
                       ${militares.map(m => `
                         <li class="flex justify-between items-center bg-white dark:bg-slate-800 px-2.5 py-1.5 rounded border dark:border-slate-700 text-xs">
-                          <span><strong>${m.nome}</strong> <span class="text-slate-500">${formatarTel(m.tel)}</span></span>
+                          <span><strong>${m.nome}</strong> <span class="text-slate-500">${formatarTel(m.telefone)}</span></span>
                           <button onclick="removerMilitarIndividual('${vtr.id}', '${m.id}')" class="text-red-500 font-black px-1">✕</button>
                         </li>
                       `).join('')}
                     </ul>`
                 }
               </div>
-            </div>
-
-            <form onsubmit="adicionarMilitarNaViatura(event, '${vtr.id}')" class="pt-2 border-t dark:border-slate-700 space-y-2">
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                <input type="text" id="mil-nome-${vtr.id}" required placeholder="Ex: Sgt Silva" class="border dark:border-slate-600 bg-white dark:bg-slate-800 rounded p-1.5 text-xs outline-none">
-                <input type="tel" id="mil-tel-${vtr.id}" required placeholder="64999990000" class="border dark:border-slate-600 bg-white dark:bg-slate-800 rounded p-1.5 text-xs outline-none">
-              </div>
-              <button type="submit" class="w-full bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold py-1.5 rounded">
-                + Escalar na ${vtr.prefixo}
-              </button>
-            </form>
+            <!-- ... -->
           </div>
         `;
       }).join('');
     }
 
     function renderizarSelecaoViaturasTriagem() {
-      const container = document.getElementById('selecao-viaturas-triagem');
-      if (bancoViaturas.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-2">Nenhuma viatura cadastrada.</p>`;
-        return;
-      }
-
+      // ... (dentro do map de viaturas, mude a leitura) ...
       container.innerHTML = bancoViaturas.map(vtr => {
         const marcada = viaturasEmpenhadasIds.includes(vtr.id);
-        const militares = guarnicoesMemoria[vtr.id] || [];
+        // MUDOU AQUI: Filtra do banco global
+        const militares = bancoGuarnicoes.filter(g => g.viatura_id === vtr.id);
         const nomesMilitares = militares.map(m => m.nome).join(', ') || 'Sem guarnição definida';
-        return `
-          <button type="button" onclick="alternarViaturaEmpenhada('${vtr.id}')" class="text-left p-3 rounded-xl border-2 transition flex justify-between items-center ${marcada ? 'border-red-600 bg-red-600 text-white shadow-md' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40'}">
-            <div>
-              <div class="font-black text-xs">[${vtr.unidade}] ${vtr.prefixo}</div>
-              <div class="text-[11px] ${marcada ? 'text-red-100' : 'text-slate-400'}">👥 ${nomesMilitares}</div>
-            </div>
-            <span class="text-base font-black">${marcada ? '✓' : '+'}</span>
-          </button>
-        `;
+        
+        return ` <!-- (mantenha o HTML igual) --> `;
       }).join('');
     }
 
