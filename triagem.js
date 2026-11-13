@@ -383,55 +383,64 @@ function normalizarTexto(s) {
     }
 
     function mostrarListaSugestoes() {
-      filtrarSugestoesSintomas();
-      document.getElementById('dropdown-sugestoes').classList.remove('hidden');
+      const termo = document.getElementById('input-busca-sintoma').value.trim();
+      // Só mostra a lista se o usuário já tiver digitado algo
+      if (termo.length > 0) {
+        filtrarSugestoesSintomas();
+      }
     }
 
-function filtrarSugestoesSintomas() {
-  const termoOriginal = (document.getElementById('input-busca-sintoma').value || '').trim();
-  const termo = normalizarTexto(termoOriginal);
-  const dropdown = document.getElementById('dropdown-sugestoes');
+    function filtrarSugestoesSintomas() {
+      const termoOriginal = (document.getElementById('input-busca-sintoma').value || '').trim();
+      const termo = normalizarTexto(termoOriginal);
+      const dropdown = document.getElementById('dropdown-sugestoes');
 
-  sugestoesAtuais = bancoSintomas.filter(s => {
-    const bateCat = naturezaSelecionada === 'TODAS' || s.categoria === naturezaSelecionada;
-    const naoSelecionado = !sintomasSelecionadosIds.includes(s.id);
-    const nomeNorm = normalizarTexto(s.nome);
-    const catNorm = normalizarTexto(s.categoria);
-    const bateTermo = !termo || nomeNorm.includes(termo) || catNorm.includes(termo);
-    return bateCat && naoSelecionado && bateTermo;
-  });
+      // Se o campo estiver vazio, esconde a lista
+      if (termoOriginal.length === 0) {
+        dropdown.classList.add('hidden');
+        return;
+      }
 
-  if (sugestoesAtuais.length === 0) {
-    if (termo.length >= 3) {
-      const catPadrao = naturezaSelecionada === 'TODAS' ? 'CLINICA' : naturezaSelecionada;
-      const termoSeguro = termoOriginal.replace(/'/g, "\\'");
-      dropdown.innerHTML = `
-        <li>
-          <button onclick="irParaCadastroDeSintoma('${termoSeguro}', '${catPadrao}')" class="w-full text-left p-3 hover:bg-emerald-50 dark:hover:bg-slate-600 cursor-pointer flex items-center gap-2 transition">
-            <span class="text-lg">➕</span>
+      sugestoesAtuais = bancoSintomas.filter(s => {
+        const bateCat = naturezaSelecionada === 'TODAS' || s.categoria === naturezaSelecionada;
+        const naoSelecionado = !sintomasSelecionadosIds.includes(s.id);
+        const nomeNorm = normalizarTexto(s.nome);
+        const catNorm = normalizarTexto(s.categoria);
+        const bateTermo = !termo || nomeNorm.includes(termo) || catNorm.includes(termo);
+        return bateCat && naoSelecionado && bateTermo;
+      });
+
+      if (sugestoesAtuais.length === 0) {
+        if (termo.length >= 3) {
+          const catPadrao = naturezaSelecionada === 'TODAS' ? 'CLINICA' : naturezaSelecionada;
+          const termoSeguro = termoOriginal.replace(/'/g, "\\'");
+          dropdown.innerHTML = `
+            <li>
+              <button onclick="irParaCadastroDeSintoma('${termoSeguro}', '${catPadrao}')" class="w-full text-left p-3 hover:bg-emerald-50 dark:hover:bg-slate-600 cursor-pointer flex items-center gap-2 transition">
+                <span class="text-lg">➕</span>
+                <div>
+                  <div class="font-bold text-xs text-emerald-700 dark:text-emerald-400">Cadastrar novo sintoma</div>
+                  <div class="text-[11px] text-slate-500">"${termoOriginal}" em [${catPadrao}]</div>
+                </div>
+              </button>
+            </li>`;
+        } else {
+          dropdown.innerHTML = `<li class="p-3 text-xs text-slate-400 italic">Nenhum sintoma encontrado. Digite 3+ letras para cadastrar.</li>`;
+        }
+      } else {
+        dropdown.innerHTML = sugestoesAtuais.map((s, idx) => `
+          <li onclick="adicionarSintomaTag('${s.id}')" class="p-2.5 hover:bg-red-50 dark:hover:bg-slate-600 cursor-pointer flex justify-between items-center transition ${idx === 0 ? 'bg-red-50/50 dark:bg-slate-600/40' : ''}">
             <div>
-              <div class="font-bold text-xs text-emerald-700 dark:text-emerald-400">Cadastrar novo sintoma</div>
-              <div class="text-[11px] text-slate-500">"${termoOriginal}" em [${catPadrao}]</div>
+              ${s.red_flag ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded mr-1">🚨 RED FLAG</span>' : ''}
+              <strong class="text-xs text-red-600 dark:text-red-400">[${s.categoria}]</strong>
+              <span class="${s.red_flag ? 'font-bold text-red-700 dark:text-red-300' : ''}">${s.nome}</span>
             </div>
-          </button>
-        </li>`;
-    } else {
-      dropdown.innerHTML = `<li class="p-3 text-xs text-slate-400 italic">Nenhum sintoma encontrado. Digite 3+ letras para cadastrar.</li>`;
+            <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">${idx === 0 ? '↵ Enter' : '+'}</span>
+          </li>
+        `).join('');
+      }
+      dropdown.classList.remove('hidden');
     }
-  } else {
-    dropdown.innerHTML = sugestoesAtuais.map((s, idx) => `
-      <li onclick="adicionarSintomaTag('${s.id}')" class="p-2.5 hover:bg-red-50 dark:hover:bg-slate-600 cursor-pointer flex justify-between items-center transition ${idx === 0 ? 'bg-red-50/50 dark:bg-slate-600/40' : ''}">
-        <div>
-          ${s.red_flag ? '<span class="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded mr-1">🚨 RED FLAG</span>' : ''}
-          <strong class="text-xs text-red-600 dark:text-red-400">[${s.categoria}]</strong>
-          <span class="${s.red_flag ? 'font-bold text-red-700 dark:text-red-300' : ''}">${s.nome}</span>
-        </div>
-        <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">${idx === 0 ? '↵ Enter' : '+'}</span>
-      </li>
-    `).join('');
-  }
-  dropdown.classList.remove('hidden');
-}
 
     function irParaCadastroDeSintoma(nome, categoria) {
       document.getElementById('dropdown-sugestoes').classList.add('hidden');
