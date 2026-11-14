@@ -143,14 +143,36 @@
     <h2 class="ac4-view-title">Gerar Vagas em Massa</h2>
     <p class="ac4-view-sub">Disponível para administradores.</p>
     <form id="adminForm" class="ac4-admin-form" onsubmit="event.preventDefault()">
-      <input type="number" id="vacanciesCount" placeholder="Nº de vagas por dia" min="1" required>
-      <input type="number" id="vacanciesHours" placeholder="Horas de escala" min="1" value="12" required>
-      <input type="text" id="vacanciesTime" placeholder="Horário (ex: 20:00)" required>
-      <select id="vacanciesSpecialization" required>
-        <option value="">Especialização</option>
-      </select>
-      <input type="text" id="vacanciesLocation" placeholder="Local" value="Catalão 10 BBM" required>
-      <textarea id="vacanciesObservations" placeholder="Observações (opcional)" class="span-2"></textarea>
+      <div class="ac4-admin-field">
+        <label for="vacanciesCount">Vagas por dia</label>
+        <input type="number" id="vacanciesCount" min="1" step="1" inputmode="numeric" required>
+      </div>
+      <div class="ac4-admin-field">
+        <label for="vacanciesHours">Carga horária</label>
+        <select id="vacanciesHours" required>
+          <option value="6">6 horas</option>
+          <option value="12" selected>12 horas</option>
+          <option value="24">24 horas</option>
+        </select>
+      </div>
+      <div class="ac4-admin-field">
+        <label for="vacanciesTime">Horário de início</label>
+        <input type="time" id="vacanciesTime" required>
+      </div>
+      <div class="ac4-admin-field">
+        <label for="vacanciesSpecialization">Especialização</label>
+        <select id="vacanciesSpecialization" required>
+          <option value="">Selecione uma especialização</option>
+        </select>
+      </div>
+      <div class="ac4-admin-field">
+        <label for="vacanciesLocation">Local</label>
+        <input type="text" id="vacanciesLocation" value="Catalão 10 BBM" required>
+      </div>
+      <div class="ac4-admin-field span-2">
+        <label for="vacanciesObservations">Observações <span>(opcional)</span></label>
+        <textarea id="vacanciesObservations"></textarea>
+      </div>
 
       <div class="ac4-admin-section-title">Datas</div>
       <div class="ac4-date-row">
