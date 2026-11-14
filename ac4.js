@@ -3,14 +3,11 @@
    ============================================================ */
 
 /* ---------- 1. CONSTANTES ---------- */
-const VALUE_TABLE = {
-  'SEGUNDA': { '24h': 658.59, '16h': 430.18, '12h Diurno': 317.64, '12h Noturno': 340.95 },
-  'TERÇA':   { '24h': 658.59, '16h': 430.18, '12h Diurno': 317.64, '12h Noturno': 340.95 },
-  'QUARTA':  { '24h': 658.59, '16h': 430.18, '12h Diurno': 317.64, '12h Noturno': 340.95 },
-  'QUINTA':  { '24h': 688.41, '16h': 430.18, '12h Diurno': 317.64, '12h Noturno': 370.77 },
-  'SEXTA':   { '24h': 908.63, '16h': 592.5,  '12h Diurno': 436.92, '12h Noturno': 471.71 },
-  'SÁBADO':  { '24h': 908.63, '16h': 592.5,  '12h Diurno': 436.92, '12h Noturno': 471.71 },
-  'DOMINGO': { '24h': 878.81, '16h': 592.5,  '12h Diurno': 436.92, '12h Noturno': 441.89 }
+const HOURLY_RATES = {
+  weekdays: { daytime: 30, evening: 30, night: 33, dawn: 30 },
+  thursday: { daytime: 30, evening: 30, night: 33, dawn: 40 },
+  fridaySaturday: { daytime: 40, evening: 40, night: 45, dawn: 40 },
+  sunday: { daytime: 40, evening: 40, night: 45, dawn: 30 }
 };
 
 const SUPABASE_URL = 'https://elakajrqhnpgvbeeuope.supabase.co';
@@ -23,6 +20,7 @@ let selectedDates = [];
 let selectedCourses = [];
 let supabaseClient = null;
 let lastGeneratedVacancies = [];
+let statusMessageTimer = null;
 
 // Cache de vagas aplicadas e controle de filtro
 let appliedVacanciesCache = new Set();
@@ -52,6 +50,23 @@ function getRankWeight(rank) {
   return 0;
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
+}
+
+function renderInlineMessage(container, className, message) {
+  const element = document.createElement('div');
+  element.className = className;
+  element.textContent = String(message ?? '');
+  container.replaceChildren(element);
+}
+
 /* ---------- 3. ÍCONES SVG ---------- */
 const ICONS = {
   clock:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
@@ -64,23 +79,31 @@ const ICONS = {
 };
 
 /* ---------- 4. MENSAGENS ---------- */
-function showError(message) {
+function showStatusMessage(message, type, duration) {
   const div = document.getElementById('statusMessage');
   if (!div) return;
-  div.innerHTML = `<div class="error">${message}</div>`;
-  if (typeof showToastAc4 === 'function') showToastAc4(message, 'err');
-  setTimeout(() => { if (div.innerHTML.includes('error')) div.innerHTML = ''; }, 5000);
+  const element = document.createElement('div');
+  element.className = type;
+  element.textContent = String(message ?? '');
+  div.replaceChildren(element);
+  clearTimeout(statusMessageTimer);
+  statusMessageTimer = setTimeout(() => {
+    if (div.firstElementChild === element) div.replaceChildren();
+  }, duration);
+  if (typeof showToastAc4 === 'function') {
+    showToastAc4(message, type === 'error' ? 'err' : 'ok');
+  }
+}
+function showError(message) {
+  showStatusMessage(message, 'error', 5000);
 }
 function showSuccess(message) {
-  const div = document.getElementById('statusMessage');
-  if (!div) return;
-  div.innerHTML = `<div class="success">${message}</div>`;
-  if (typeof showToastAc4 === 'function') showToastAc4(message, 'ok');
-  setTimeout(() => { if (div.innerHTML.includes('success')) div.innerHTML = ''; }, 3000);
+  showStatusMessage(message, 'success', 3000);
 }
 function clearMessage() {
   const div = document.getElementById('statusMessage');
-  if (div) div.innerHTML = '';
+  clearTimeout(statusMessageTimer);
+  if (div) div.replaceChildren();
 }
 function setBtnLoading(btn, on) {
   if (!btn) return;
@@ -195,28 +218,83 @@ function getDayOfWeek(dateString) {
   const date = new Date(dateString + 'T00:00:00');
   return ['DOMINGO','SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA','SÁBADO'][date.getDay()];
 }
+function getLocalDateISO(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+function getRatesForDay(day) {
+  if (day === 'QUINTA') return HOURLY_RATES.thursday;
+  if (day === 'SEXTA' || day === 'SÁBADO') return HOURLY_RATES.fridaySaturday;
+  if (day === 'DOMINGO') return HOURLY_RATES.sunday;
+  if (['SEGUNDA', 'TERÇA', 'QUARTA'].includes(day)) return HOURLY_RATES.weekdays;
+  return null;
+}
+function getHourlyRate(hour, rates) {
+  if (hour >= 8 && hour < 20) return rates.daytime;
+  if (hour >= 20 && hour < 22) return rates.evening;
+  if (hour >= 22 || hour < 5) return rates.night;
+  return rates.dawn;
+}
+function getEndTime(time, hours) {
+  const duration = Number(hours);
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(time || ''));
+  if (!Number.isInteger(duration) || duration <= 0 || !match) return '';
+
+  const end = (Number(match[1]) * 60 + Number(match[2]) + duration * 60) % (24 * 60);
+  return `${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+}
 function getPeriod(hours, time) {
-  const h = parseInt(hours);
-  if (h === 24) return '24h';
-  if (h === 16) return '16h';
-  if (h === 12) {
-    if (time && time.includes(':')) {
-      const hour = parseInt(time.split(':')[0]);
-      if (hour >= 18 || hour <= 6) return '12h Noturno';
-    }
-    return '12h Diurno';
-  }
-  return `${h}h`;
+  const duration = Number.parseInt(hours, 10);
+  if (duration === 24) return '24h';
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(time || ''));
+  if (!match) return `${duration}h`;
+
+  return `${duration}h (${String(time)}-${getEndTime(time, duration)})`;
+}
+function getVacancyTimeRange(vacancy) {
+  const start = String(vacancy.horario || '').trim();
+  const end = getEndTime(start, vacancy.horas);
+  if (!start) return '—';
+  return end ? `${start} às ${end}` : start;
+}
+function getVacancyHours(vacancy) {
+  const duration = Number(vacancy.horas);
+  return Number.isInteger(duration) && duration > 0 ? `${duration}h` : '—';
 }
 function calculateValue(dateString, hours, time) {
-  const d = getDayOfWeek(dateString), p = getPeriod(hours, time);
-  if (VALUE_TABLE[d] && VALUE_TABLE[d][p]) return VALUE_TABLE[d][p];
-  return 300.00;
+  const duration = Number(hours);
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(time || ''));
+  if (![6, 12, 24].includes(duration) || !Number.isInteger(duration) || !match) return null;
+
+  const rates = getRatesForDay(getDayOfWeek(dateString));
+  if (!rates) return null;
+
+  let cursor = Number(match[1]) * 60 + Number(match[2]);
+  let minutesRemaining = duration * 60;
+  let value = 0;
+  while (minutesRemaining > 0) {
+    const minuteOfDay = cursor % (24 * 60);
+    const hour = Math.floor(minuteOfDay / 60);
+    const minutesInSegment = Math.min(minutesRemaining, 60 - (minuteOfDay % 60));
+    value += getHourlyRate(hour, rates) * minutesInSegment / 60;
+    cursor += minutesInSegment;
+    minutesRemaining -= minutesInSegment;
+  }
+
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 function fmtDate(d) {
   if (!d) return '—';
   try { return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR'); }
   catch (e) { return d; }
+}
+function formatCurrency(value) {
+  return Number(value).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 function showValuePreview() {
   const h = document.getElementById('vacanciesHours').value || '12';
@@ -226,7 +304,10 @@ function showValuePreview() {
     let html = '<strong style="color:var(--ac4-text)">Valores calculados:</strong><br>';
     selectedDates.forEach(date => {
       const v = calculateValue(date, h, t);
-      html += `<div style="margin:4px 0;font-size:13.5px">${fmtDate(date)} (${getDayOfWeek(date)}) · ${getPeriod(h, t)}: <strong style="color:var(--ac4-emerald)">R$ ${v.toFixed(2)}</strong></div>`;
+      const valueText = v === null
+        ? `<strong style="color:var(--ac4-amber)">${t ? 'Não foi possível calcular o valor' : 'Informe o horário de início'}</strong>`
+        : `<strong style="color:var(--ac4-emerald)">R$ ${formatCurrency(v)}</strong>`;
+      html += `<div style="margin:4px 0;font-size:13.5px">${escapeHtml(fmtDate(date))} (${escapeHtml(getDayOfWeek(date))}) · ${escapeHtml(getPeriod(h, t))}: ${valueText}</div>`;
     });
     div.innerHTML = html;
   } else {
@@ -246,6 +327,21 @@ function clearSession() { localStorage.removeItem('10bbm_session'); }
 
 /* ---------- 8. SUPABASE API LAYER ---------- */
 const rgToEmail = (rg) => `${String(rg).trim()}@cbmgo.local`;
+
+async function getAdminAccess() {
+  const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+  if (sessionError) return { session: null, isAdmin: false, error: sessionError };
+  if (!session) return { session: null, isAdmin: false, error: null };
+
+  const { data: profile, error } = await supabaseClient
+    .from('usuarios')
+    .select('is_admin')
+    .eq('id', session.user.id)
+    .single();
+  if (error) return { session: null, isAdmin: false, error };
+  const isAdmin = !!profile?.is_admin;
+  return { session: isAdmin ? session : null, isAdmin, error: null };
+}
 
 async function apiJSONP(path) {
   const qs = new URLSearchParams(path.replace(/^\?/, ''));
@@ -286,10 +382,9 @@ async function apiJSONP(path) {
       return { success: true, profile: prof };
     }
     if (action === 'checkAdminPermission') {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) return { success: false, isAdmin: false };
-      const { data: prof } = await supabaseClient.from('usuarios').select('is_admin').eq('id', session.user.id).single();
-      return { success: true, isAdmin: !!prof?.is_admin };
+      const access = await getAdminAccess();
+      if (access.error) return { success: false, isAdmin: false, message: access.error.message };
+      return { success: true, isAdmin: access.isAdmin };
     }
     if (action === 'getUserProfile') {
       const rg = qs.get('rg');
@@ -307,11 +402,27 @@ async function apiJSONP(path) {
     if (action === 'updateUserSpecialties') {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (!session) return { success: false, message: 'Não autenticado' };
-      const specialties = (qs.get('specialties') || '').split(',').map(s => s.trim()).filter(Boolean);
-      await supabaseClient.from('usuarios_especialidades').delete().eq('usuario_id', session.user.id);
-      for (const nome of specialties) {
-        const { data: curso } = await supabaseClient.from('cursos').select('id').eq('nome', nome).single();
-        if (curso) await supabaseClient.from('usuarios_especialidades').insert([{ usuario_id: session.user.id, curso_id: curso.id }]);
+      const specialties = [...new Set(
+        (qs.get('specialties') || '').split(',').map(s => s.trim()).filter(Boolean)
+      )];
+      let courseIds = [];
+      if (specialties.length > 0) {
+        const { data: courses, error: coursesError } = await supabaseClient
+          .from('cursos').select('id, nome').in('nome', specialties);
+        if (coursesError) return { success: false, message: coursesError.message };
+        if (!courses || courses.length !== specialties.length) {
+          return { success: false, message: 'Uma ou mais especialidades não foram encontradas.' };
+        }
+        courseIds = courses.map(course => course.id);
+      }
+      const { error: deleteError } = await supabaseClient
+        .from('usuarios_especialidades').delete().eq('usuario_id', session.user.id);
+      if (deleteError) return { success: false, message: deleteError.message };
+      if (courseIds.length > 0) {
+        const { error: insertError } = await supabaseClient
+          .from('usuarios_especialidades')
+          .insert(courseIds.map(curso_id => ({ usuario_id: session.user.id, curso_id })));
+        if (insertError) return { success: false, message: insertError.message };
       }
       return { success: true };
     }
@@ -329,8 +440,10 @@ async function apiJSONP(path) {
     }
     if (action === 'generateVacancies') {
       const config = JSON.parse(qs.get('config'));
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) return { success: false, message: 'Não autenticado' };
+      const access = await getAdminAccess();
+      if (access.error) return { success: false, message: access.error.message };
+      if (!access.session) return { success: false, message: 'Acesso restrito a administradores.' };
+      const session = access.session;
       
       // OTIMIZAÇÃO: Cria apenas 1 registro por dia, com a quantidade total de vagas
       const registros = config.dias.map(d => ({
@@ -345,7 +458,14 @@ async function apiJSONP(path) {
       
       const { data, error } = await supabaseClient.from('vagas').insert(registros).select();
       if (error) return { success: false, message: error.message };
-      return { success: true, vacancies: data.map(v => ({ id: v.id, data: v.data, dia: v.dia, local: v.local, valor: v.valores })) };
+      return {
+        success: true,
+        vacancies: data.map(v => ({
+          id: v.id, data: v.data, dia: v.dia, local: v.local,
+          horario: v.horario, horas: v.horas,
+          especializacao: v.especializacao, valor: v.valores
+        }))
+      };
     }
     if (action === 'listMyApplications') {
       const { data: { session } } = await supabaseClient.auth.getSession();
@@ -383,7 +503,7 @@ async function apiJSONP(path) {
       if (errVaga || !vaga) return { success: false, message: 'Vaga não encontrada.' };
       
       // 2) Valida expiração
-      if (vaga.data && vaga.data < new Date().toISOString().slice(0, 10)) {
+      if (vaga.data && vaga.data < getLocalDateISO()) {
         return { success: false, message: 'Esta vaga já expirou.' };
       }
       
@@ -447,6 +567,9 @@ async function apiJSONP(path) {
       return { success: true };
     }
     if (action === 'listAllApplications' || action === 'listApprovedApplications') {
+      const access = await getAdminAccess();
+      if (access.error) return { success: false, message: access.error.message };
+      if (!access.session) return { success: false, message: 'Acesso restrito a administradores.' };
       const onlyApproved = action === 'listApprovedApplications';
       let q = supabaseClient.from('candidaturas')
         .select('*, vagas(*), usuarios!usuario_id(nome, saldo, graduacao)')
@@ -468,8 +591,10 @@ async function apiJSONP(path) {
     }
     if (action === 'approveApplication') {
       const rowIndex = parseInt(qs.get('rowIndex'));
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) return { success: false, message: 'Não autenticado' };
+      const access = await getAdminAccess();
+      if (access.error) return { success: false, message: access.error.message };
+      if (!access.session) return { success: false, message: 'Acesso restrito a administradores.' };
+      const session = access.session;
       
       const { data: cand, error: errBusca } = await supabaseClient
         .from('candidaturas')
@@ -503,8 +628,10 @@ async function apiJSONP(path) {
     }
     if (action === 'unapproveApplication') {
       const rowIndex = parseInt(qs.get('rowIndex'));
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) return { success: false, message: 'Não autenticado' };
+      const access = await getAdminAccess();
+      if (access.error) return { success: false, message: access.error.message };
+      if (!access.session) return { success: false, message: 'Acesso restrito a administradores.' };
+      const session = access.session;
 
       const { data: cand, error: errBusca } = await supabaseClient
         .from('candidaturas')
@@ -653,7 +780,7 @@ async function loadProfileInfo() {
     userProfile = profile.data;
     updateUserChip(currentUserRG, userProfile);
 
-    const safe = (v) => v ?? '—';
+    const safe = (v) => escapeHtml(v ?? '—');
     const fields = [
       ['RG', safe(userProfile.rg)],
       ['Graduação', safe(userProfile.graduacao)],
@@ -681,14 +808,14 @@ async function loadProfileInfo() {
 
     document.getElementById('btnAddSpecialties').addEventListener('click', showCoursesSection);
   } catch (e) {
-    div.innerHTML = `<div class="error">Erro ao carregar perfil: ${e.message}</div>`;
+    renderInlineMessage(div, 'error', `Erro ao carregar perfil: ${e.message}`);
   }
 }
 
 function renderSpecialties() {
   if (userProfile && userProfile.especialidade) {
     const esp = userProfile.especialidade.split(',').map(s => s.trim()).filter(Boolean);
-    if (esp.length > 0) return esp.map(s => `<span class="ac4-tag">${s}</span>`).join('');
+    if (esp.length > 0) return esp.map(s => `<span class="ac4-tag">${escapeHtml(s)}</span>`).join('');
   }
   return '<em style="color:var(--ac4-muted);font-size:13px">Nenhuma especialidade cadastrada</em>';
 }
@@ -720,7 +847,7 @@ async function loadCourses() {
     div.appendChild(grid);
     updateSelectedCoursesDisplay();
   } catch (e) {
-    div.innerHTML = `<div class="error">Erro ao carregar cursos: ${e.message}</div>`;
+    renderInlineMessage(div, 'error', `Erro ao carregar cursos: ${e.message}`);
   }
 }
 
@@ -741,7 +868,7 @@ function toggleCourse(courseName) {
 function updateSelectedCoursesDisplay() {
   const div = document.getElementById('selectedCourses');
   div.innerHTML = selectedCourses.length > 0
-    ? `<div class="ac4-specialties-title" style="margin-top:0">Selecionadas</div>${selectedCourses.map(c => `<span class="ac4-tag">${c}</span>`).join('')}`
+    ? `<div class="ac4-specialties-title" style="margin-top:0">Selecionadas</div>${selectedCourses.map(c => `<span class="ac4-tag">${escapeHtml(c)}</span>`).join('')}`
     : '<em style="color:var(--ac4-muted);font-size:13px">Nenhuma especialidade selecionada</em>';
 }
 
@@ -783,7 +910,7 @@ async function loadVacancies() {
     }
     appliedVacanciesCache.forEach(id => applied.add(String(id)));
 
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = getLocalDateISO();
     currentAvailableVacancies = resp.vacancies.filter(v =>
       !applied.has(String(v.Id)) && (!v.Data || v.Data >= hoje)
     );
@@ -791,7 +918,7 @@ async function loadVacancies() {
     document.getElementById('filterVacancyDate').value = ''; // limpa o filtro ao carregar
     applyVacancyFilter();
   } catch (e) {
-    div.innerHTML = `<div class="error">Erro ao carregar vagas: ${e.message}</div>`;
+    renderInlineMessage(div, 'error', `Erro ao carregar vagas: ${e.message}`);
   }
 }
 
@@ -822,21 +949,21 @@ function applyVacancyFilter() {
     el.className = 'ac4-vaga';
     el.innerHTML = `
       <div class="ac4-vaga-main">
-        <div class="ac4-vaga-day">${v.Dia || '—'}</div>
-        <h3 class="ac4-vaga-date">${fmtDate(v.Data)} · ${v.Horario || '—'}</h3>
-        <div class="ac4-vaga-id">#${v.Id}</div>
+        <div class="ac4-vaga-day">${escapeHtml(v.Dia || '—')}</div>
+        <h3 class="ac4-vaga-date">${escapeHtml(fmtDate(v.Data))} · ${escapeHtml(v.Horario || '—')}</h3>
+        <div class="ac4-vaga-id">#${escapeHtml(v.Id)}</div>
         <div class="ac4-vaga-meta">
-          <span>${ICONS.pin} ${v.Local || '—'}</span>
-          <span>${ICONS.clock} ${v.Horas || '—'}h</span>
-          <span>${ICONS.target} ${v.Especialização || '—'}</span>
-          <span>${ICONS.users} ${v.Vagas || '1'} vaga(s)</span>
+          <span>${ICONS.pin} ${escapeHtml(v.Local || '—')}</span>
+          <span>${ICONS.clock} ${escapeHtml(v.Horas || '—')}h</span>
+          <span>${ICONS.target} ${escapeHtml(v.Especialização || '—')}</span>
+          <span>${ICONS.users} ${escapeHtml(v.Vagas || '1')} vaga(s)</span>
         </div>
       </div>
       <div class="ac4-vaga-right">
-        <div class="ac4-vaga-value">${v.Valores || '—'}</div>
-        <button type="button" data-id="${v.Id}" class="ac4-btn primary ac4-vaga-cta">Candidatar-se</button>
+        <div class="ac4-vaga-value">${escapeHtml(v.Valores || '—')}</div>
+        <button type="button" data-id="${escapeHtml(v.Id)}" class="ac4-btn primary ac4-vaga-cta">Candidatar-se</button>
       </div>
-      ${v.Observações ? `<div class="ac4-vaga-obs">${v.Observações}</div>` : ''}
+      ${v.Observações ? `<div class="ac4-vaga-obs">${escapeHtml(v.Observações)}</div>` : ''}
     `;
     div.appendChild(el);
   });
@@ -901,33 +1028,44 @@ async function loadMyApplications() {
     div.innerHTML = `<p style="color:var(--ac4-muted);font-size:13px;margin:0 0 14px"><strong>${resp.applications.length}</strong> candidatura(s)</p>`;
     resp.applications.forEach(a => {
       const homol = a.Status && a.Status.toLowerCase() === 'homologado';
+      const applicationId = Number(a.id);
+      const vacancyId = Number(a.idVaga);
+      const canCancel = Number.isSafeInteger(applicationId) && Number.isSafeInteger(vacancyId);
       const el = document.createElement('div');
       el.className = 'ac4-cand';
       el.innerHTML = `
         <div class="ac4-cand-main">
           <div class="ac4-cand-title">
-            Vaga #${a.idVaga}
+            Vaga #${escapeHtml(a.idVaga)}
             <span class="ac4-pill ${a.Especialista === 'Sim' ? 'esp' : 'normal'}">${a.Especialista === 'Sim' ? 'Especialista' : 'Não esp.'}</span>
           </div>
           <div class="ac4-cand-meta">
-            ${a.Data ? `<span>${fmtDate(a.Data)} · ${a.Horario || ''}</span>` : ''}
-            ${a.Local ? `<span>${a.Local}</span>` : ''}
-            ${a.Horas ? `<span>${a.Horas}h</span>` : ''}
+            ${a.Data ? `<span>${escapeHtml(fmtDate(a.Data))} · ${escapeHtml(a.Horario || '')}</span>` : ''}
+            ${a.Local ? `<span>${escapeHtml(a.Local)}</span>` : ''}
+            ${a.Horas ? `<span>${escapeHtml(a.Horas)}h</span>` : ''}
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
-          ${a.Valor ? `<div class="ac4-cand-value">${a.Valor}</div>` : ''}
+          ${a.Valor ? `<div class="ac4-cand-value">${escapeHtml(a.Valor)}</div>` : ''}
           <span class="ac4-pill ${homol ? 'approved' : 'pending'}">${homol ? 'Homologado' : 'Em análise'}</span>
           ${homol 
             ? `<span style="font-size:12px;color:var(--ac4-muted);font-style:italic">Bloqueada</span>` 
-            : `<button type="button" class="ac4-btn danger small" onclick="cancelMyApplication('${a.id}', '${a.idVaga}', this)">Desfazer</button>`
+            : canCancel
+              ? '<button type="button" class="ac4-btn danger small js-cancel-application">Desfazer</button>'
+              : '<span class="ac4-cand-meta">Não foi possível carregar o identificador da candidatura.</span>'
           }
         </div>
       `;
       div.appendChild(el);
+      const cancelButton = el.querySelector('.js-cancel-application');
+      if (cancelButton) {
+        cancelButton.addEventListener('click', () =>
+          cancelMyApplication(applicationId, vacancyId, cancelButton)
+        );
+      }
     });
   } catch (e) {
-    div.innerHTML = `<div class="error">Erro: ${e.message}</div>`;
+    renderInlineMessage(div, 'error', `Erro: ${e.message}`);
   }
 }
 
@@ -964,10 +1102,14 @@ function updateDatesList() {
     return;
   }
   dl.innerHTML = selectedDates.map(date => {
-    const v = calculateValue(date, document.getElementById('vacanciesHours').value || '12', document.getElementById('vacanciesTime').value || '');
+    const time = document.getElementById('vacanciesTime').value || '';
+    const v = calculateValue(date, document.getElementById('vacanciesHours').value || '12', time);
+    const valueMarkup = v === null
+      ? `<small class="ac4-value-missing">${time ? 'Não foi possível calcular o valor' : 'Informe o horário de início'}</small>`
+      : `<small>R$ ${formatCurrency(v)}</small>`;
     return `
       <div class="ac4-date-item">
-        <div><strong>${fmtDate(date)}</strong> <span style="color:var(--ac4-muted)">(${getDayOfWeek(date)})</span><br><small>R$ ${v.toFixed(2)}</small></div>
+        <div><strong>${escapeHtml(fmtDate(date))}</strong> <span style="color:var(--ac4-muted)">(${escapeHtml(getDayOfWeek(date))})</span><br>${valueMarkup}</div>
         <button type="button" onclick="removeDate('${date}')" class="ac4-btn small danger">Remover</button>
       </div>`;
   }).join('');
@@ -980,6 +1122,10 @@ function removeDate(date) {
 function addDate() {
   const dp = document.getElementById('datePicker');
   const date = dp.value;
+  if (date && date < getLocalDateISO()) {
+    showError('Selecione uma data de hoje ou futura.');
+    return;
+  }
   if (date && !selectedDates.includes(date)) {
     selectedDates.push(date);
     updateDatesList();
@@ -994,6 +1140,9 @@ function clearDates() {
 }
 
 async function generateVacancies() {
+  const form = document.getElementById('adminForm');
+  if (!form.reportValidity()) return;
+
   const vc = document.getElementById('vacanciesCount').value;
   const vh = document.getElementById('vacanciesHours').value;
   const vt = document.getElementById('vacanciesTime').value;
@@ -1002,10 +1151,21 @@ async function generateVacancies() {
   const vo = document.getElementById('vacanciesObservations').value;
   if (!vc || !vh || !vt || !vs || !vl) return showError('Preencha todos os campos obrigatórios');
   if (selectedDates.length === 0) return showError('Selecione pelo menos uma data');
+  if (!Number.isInteger(Number(vc)) || Number(vc) < 1) {
+    return showError('A quantidade de vagas deve ser um número inteiro maior que zero.');
+  }
+  if (![6, 12, 24].includes(Number(vh))) {
+    return showError('A carga horária deve ser 6, 12 ou 24 horas.');
+  }
+
+  const calculatedValues = selectedDates.map(date => calculateValue(date, vh, vt));
+  if (calculatedValues.some(value => value === null)) {
+    return showError('Não foi possível calcular o valor. Confira a data, o horário e a carga horária.');
+  }
 
   const vi = selectedDates.map(date => ({
     date,
-    value: `R$ ${calculateValue(date, vh, vt).toFixed(2).replace('.', ',')}`,
+    value: `R$ ${formatCurrency(calculateValue(date, vh, vt))}`,
     dayOfWeek: getDayOfWeek(date),
     period: getPeriod(vh, vt)
   }));
@@ -1026,7 +1186,7 @@ async function generateVacancies() {
       lastGeneratedVacancies = r.vacancies; 
       document.getElementById('actionsGenerated').classList.remove('hidden');
       
-      rd.innerHTML = `<div class="success"><strong>${r.vacancies.length} dia(s) de vaga criado(s)</strong><ul style="margin:8px 0;padding-left:20px;font-size:13px">${r.vacancies.map(v => `<li>#${v.id} — ${v.data} (${v.dia}) — ${v.local} — ${v.valor}</li>`).join('')}</ul></div>`;
+      rd.innerHTML = `<div class="success"><strong>${r.vacancies.length} dia(s) de vaga criado(s)</strong><ul style="margin:8px 0;padding-left:20px;font-size:13px">${r.vacancies.map(v => `<li>#${escapeHtml(v.id)} — ${escapeHtml(v.data)} (${escapeHtml(v.dia)}) — ${escapeHtml(v.local)} — ${escapeHtml(getVacancyTimeRange(v))} — ${escapeHtml(getVacancyHours(v))} — ${escapeHtml(v.especializacao || '—')} — ${escapeHtml(v.valor)}</li>`).join('')}</ul></div>`;
       document.getElementById('vacanciesCount').value = '';
       document.getElementById('vacanciesTime').value = '';
       document.getElementById('vacanciesSpecialization').value = '';
@@ -1037,10 +1197,10 @@ async function generateVacancies() {
     } else {
       lastGeneratedVacancies = [];
       document.getElementById('actionsGenerated').classList.add('hidden');
-      rd.innerHTML = `<div class="error">${r.message}</div>`;
+      renderInlineMessage(rd, 'error', r.message);
     }
   } catch (e) {
-    rd.innerHTML = `<div class="error">${e.message}</div>`;
+    renderInlineMessage(rd, 'error', e.message);
   } finally {
     setBtnLoading(btn, false);
   }
@@ -1060,7 +1220,9 @@ function shareGeneratedWhatsApp() {
     const list = grouped[date];
     msg += `📅 *Data:* ${fmtDate(date)} (${list[0].dia})\n`;
     msg += `📍 *Local:* ${list[0].local}\n`;
-    msg += `⏰ *Horário:* ${list[0].horario || '—'} | 💲 *Valor:* ${list[0].valor}\n`;
+    msg += `⏰ *Horário:* ${getVacancyTimeRange(list[0])} | ⌛ *Carga horária:* ${getVacancyHours(list[0])}\n`;
+    msg += `🧑‍🚒 *Especialidade:* ${list[0].especializacao || '—'}\n`;
+    msg += `💲 *Valor:* ${list[0].valor}\n`;
     msg += `-------------------------\n`;
   });
   
@@ -1084,10 +1246,12 @@ function printGeneratedVacancies() {
   
   lastGeneratedVacancies.forEach(v => {
     html += `<div class="vaga">
-      <strong>ID: #${v.id}</strong> | Data: ${fmtDate(v.data)} (${v.dia})<br>
+      <strong>ID: #${escapeHtml(v.id)}</strong> | Data: ${escapeHtml(fmtDate(v.data))} (${escapeHtml(v.dia)})<br>
       <div class="meta">
-        <strong>Local:</strong> ${v.local} | <strong>Horário:</strong> ${v.horario || '—'}<br>
-        <strong>Valor:</strong> ${v.valor}
+        <strong>Local:</strong> ${escapeHtml(v.local)}<br>
+        <strong>Horário:</strong> ${escapeHtml(getVacancyTimeRange(v))} | <strong>Carga horária:</strong> ${escapeHtml(getVacancyHours(v))}<br>
+        <strong>Especialidade:</strong> ${escapeHtml(v.especializacao || '—')}<br>
+        <strong>Valor:</strong> ${escapeHtml(v.valor)}
       </div>
     </div>`;
   });
@@ -1171,9 +1335,9 @@ function renderCandidatesList(candidates) {
     html += `
       <div class="ac4-vaga-header-admin">
         <h3 class="ac4-vaga-header-title">
-          Vaga #${vaga.idVaga} 
+          Vaga #${escapeHtml(vaga.idVaga)} 
           <span>
-            ${vaga.data ? fmtDate(vaga.data) : ''} · ${vaga.horario || ''} · ${vaga.local || ''} · ${vaga.especializacao || ''} · <strong style="color:var(--ac4-emerald)">${vaga.valor}</strong>
+            ${vaga.data ? escapeHtml(fmtDate(vaga.data)) : ''} · ${escapeHtml(vaga.horario || '')} · ${escapeHtml(vaga.local || '')} · ${escapeHtml(vaga.especializacao || '')} · <strong style="color:var(--ac4-emerald)">${escapeHtml(vaga.valor)}</strong>
           </span>
         </h3>
       </div>
@@ -1197,16 +1361,17 @@ function renderCandidatesList(candidates) {
         ? `<span class="ac4-pill esp" style="padding:2px 6px">Sim</span>` 
         : `<span class="ac4-pill normal" style="padding:2px 6px">Não</span>`;
 
-      const actionBtn = currentCandidateFilter === 'pending'
-        ? `<button type="button" onclick="approveCandidate('${c.rowIndex}', this)" class="ac4-btn success small" style="min-height:28px; padding:4px 10px;">Homologar</button>`
-        : `<button type="button" onclick="unapproveCandidate('${c.rowIndex}', this)" class="ac4-btn danger small" style="min-height:28px; padding:4px 10px;">Desfazer</button>`;
+      const applicationId = Number(c.rowIndex);
+      const actionBtn = Number.isSafeInteger(applicationId)
+        ? `<button type="button" data-application-id="${applicationId}" class="ac4-btn ${currentCandidateFilter === 'pending' ? 'success' : 'danger'} small js-review-application" style="min-height:28px; padding:4px 10px;">${currentCandidateFilter === 'pending' ? 'Homologar' : 'Desfazer'}</button>`
+        : '<span>Indisponível</span>';
 
       html += `
         <tr>
           <td><strong>${i + 1}º</strong></td>
-          <td><strong>${c.nome}</strong></td>
-          <td>${c.graduacao || '—'}</td>
-          <td><span style="color:var(--ac4-accent);font-weight:700">${c.saldo || '0'}</span></td>
+          <td><strong>${escapeHtml(c.nome)}</strong></td>
+          <td>${escapeHtml(c.graduacao || '—')}</td>
+          <td><span style="color:var(--ac4-accent);font-weight:700">${escapeHtml(c.saldo || '0')}</span></td>
           <td>${espPill}</td>
           <td>${actionBtn}</td>
         </tr>
@@ -1221,6 +1386,13 @@ function renderCandidatesList(candidates) {
   });
 
   div.innerHTML = html;
+  div.querySelectorAll('.js-review-application').forEach(button => {
+    button.addEventListener('click', () => {
+      const id = Number(button.dataset.applicationId);
+      if (currentCandidateFilter === 'pending') approveCandidate(id, button);
+      else unapproveCandidate(id, button);
+    });
+  });
 }
 
 async function loadAllCandidates() {
@@ -1243,7 +1415,7 @@ async function loadAllCandidates() {
 
     applyCandidateFilter();
   } catch (e) {
-    div.innerHTML = `<div class="error">Erro: ${e.message}</div>`;
+    renderInlineMessage(div, 'error', `Erro: ${e.message}`);
   }
 }
 
@@ -1260,7 +1432,7 @@ async function loadApprovedCandidates() {
     loadedCandidates = r.applications;
     applyCandidateFilter();
   } catch (e) {
-    div.innerHTML = `<div class="error">Erro: ${e.message}</div>`;
+    renderInlineMessage(div, 'error', `Erro: ${e.message}`);
   }
 }
 
@@ -1312,8 +1484,17 @@ function setupEventListeners() {
   document.getElementById('btnViewCandidates')?.addEventListener('click', () => {setFilterActive('btnViewCandidates');loadAllCandidates();});
   document.getElementById('btnViewApproved')?.addEventListener('click', () => {setFilterActive('btnViewApproved');loadApprovedCandidates();});
 
-  document.getElementById('vacanciesHours')?.addEventListener('change', showValuePreview);
-  document.getElementById('vacanciesTime')?.addEventListener('change', showValuePreview);
+  const refreshValuePreview = () => {
+    updateDatesList();
+    showValuePreview();
+  };
+  ['vacanciesHours', 'vacanciesTime'].forEach(id => {
+    const field = document.getElementById(id);
+    field?.addEventListener('input', refreshValuePreview);
+    field?.addEventListener('change', refreshValuePreview);
+  });
+  const datePicker = document.getElementById('datePicker');
+  if (datePicker) datePicker.min = getLocalDateISO();
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -1382,7 +1563,8 @@ async function salvarNovaSenha() {
     if (admin.success && admin.isAdmin) showAdminButton();
     alternarAbaAc4('vagas');
   } catch (err) {
-    msg.innerHTML = `<span style="color:var(--danger)">Erro: ${err.message}</span>`;
+    msg.textContent = `Erro: ${err.message}`;
+    msg.style.color = 'var(--danger)';
   } finally {
     setBtnLoading(btn, false);
   }
