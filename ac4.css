@@ -611,6 +611,25 @@ html.dark .ac4-course.selected { background: rgba(52,211,153,.1); }
   gap: 12px;
   margin-top: 16px;
 }
+.ac4-admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ac4-admin-field label {
+  margin: 0;
+  color: var(--ac4-text-soft);
+  font-size: 13px;
+  font-weight: 600;
+}
+.ac4-admin-field label span {
+  color: var(--ac4-muted);
+  font-weight: 400;
+}
+.ac4-value-missing {
+  color: var(--ac4-amber);
+}
 @media (min-width: 720px) {
   .ac4-admin-form { grid-template-columns: 1fr 1fr; }
   .ac4-admin-form .span-2 { grid-column: 1 / -1; }
@@ -915,3 +934,14 @@ html.dark .ac4-cand-table tr:hover td { background: rgba(255,255,255,0.02); }
   .ac4-cand-table th, .ac4-cand-table td { padding: 8px; font-size: 12px; }
   .ac4-cand-table th:nth-child(5), .ac4-cand-table td:nth-child(5) { display: none; } /* Esconde Esp. no mobile */
 }
+
+.ac4-page :focus-visible {
+  outline: 3px solid var(--ac4-accent);
+  outline-offset: 2px;
+}
+
+.ac4-vaga-day,
+.ac4-vaga-id {
+  font-size: 12px;
+}
+.ac4-cand-meta { font-size: 13px; }
