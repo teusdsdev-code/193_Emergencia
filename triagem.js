@@ -24,6 +24,7 @@
     let bancoBairrosLocalidades = [];
     let cacheRuas = {};
     let usoBairrosLocais = JSON.parse(localStorage.getItem('cobom_bairros_uso') || '{}');
+    let ultimoBairroContabilizadoId = null;
     // Perguntas de triagem
     let bancoPerguntas = [];
     let bancoSintomaPerguntas = [];
@@ -202,6 +203,7 @@ function normalizarTexto(s) {
 
       await sincronizarComSupabase(false);
       await sincronizarLocalidades();
+      await aplicarCidadePadrao();
       await sincronizarPerguntas();
       cancelarEdicaoPergunta();
       atualizarRelatorio();
@@ -237,12 +239,6 @@ function normalizarTexto(s) {
       // Sync entre abas
       window.addEventListener('storage', (e) => {
         if (e.key === 'cbmgo193.theme') atualizarIconeTema();
-        if (e.key === 'cobom_guarnicoes_memoria') {
-          guarnicoesMemoria = JSON.parse(e.newValue || '{}');
-          renderizarViaturasEGuarnicao();
-          renderizarSelecaoViaturasTriagem();
-          atualizarRelatorio();
-        }
       });
     });
 
@@ -269,6 +265,7 @@ function normalizarTexto(s) {
         if (resSintomas.error)     console.warn('sintomas:', resSintomas.error.message);
         if (resDiagnosticos.error) console.warn('diagnosticos:', resDiagnosticos.error.message);
         if (resViaturas.error)     console.warn('viaturas:', resViaturas.error.message);
+        if (resGuarnicoes.error)   console.warn('guarnicoes:', resGuarnicoes.error.message);
 
         if (houveErro) {
           carregarDoCacheLocal('Cache (falha parcial)');
@@ -632,14 +629,6 @@ function popularDatalistsCadastros() {
     ).join('');
   }
 
-  // Perguntas
-  const dlPerg = document.getElementById('datalist-perguntas-existentes');
-  if (dlPerg) {
-    dlPerg.innerHTML = bancoPerguntas.map(p =>
-      `<option value="${p.texto}">${p.red_flag ? '🚨 Red Flag' : ''}</option>`
-    ).join('');
-  }
-
   // Cidades
   const dlCid = document.getElementById('datalist-cad-cidades-nomes');
   if (dlCid) {
@@ -733,13 +722,6 @@ function verificarRuaDuplicada(nome, bairroId) {
       if (error) return mostrarToast('Erro ao excluir viatura: ' + error.message, 'erro');
       mostrarToast('Viatura excluída.', 'sucesso');
       await sincronizarComSupabase(false);
-    }
-
-    function salvarGuarnicoesNaMemoria() {
-      /*localStorage.setItem('cobom_guarnicoes_memoria', JSON.stringify(guarnicoesMemoria));
-      renderizarViaturasEGuarnicao();
-      renderizarSelecaoViaturasTriagem();
-      atualizarRelatorio();*/
     }
 
     async function adicionarMilitarNaViatura(event, viaturaId) {
@@ -1051,32 +1033,37 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
         .catch(() => mostrarToast('Não foi possível copiar. Use Ctrl+C manualmente.', 'erro'));
     }
 
-    function baixarPDF() {
-      const html = document.documentElement;
-      const eraDark = html.classList.contains('dark');
-      const blocoEdicaoObs = document.querySelector('#area-relatorio .no-print');
+    async function baixarPDF() {
+      const nomeArquivo = `despacho-193-${String(protocoloAtual || Date.now()).replace(/[^\w-]/g, '_')}.pdf`;
 
-      if (eraDark) html.classList.remove('dark');
-      if (blocoEdicaoObs) blocoEdicaoObs.style.display = 'none';
+      try {
+        if (typeof html2pdf !== 'function') {
+          throw new Error('A biblioteca de geração de PDF não está disponível.');
+        }
 
-      const restaurar = () => {
-        if (eraDark) html.classList.add('dark');
-        if (blocoEdicaoObs) blocoEdicaoObs.style.display = '';
-      };
+        await html2pdf().set({
+          margin: 10,
+          filename: nomeArquivo,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            onclone: (documentoClonado) => {
+              documentoClonado.documentElement.classList.remove('dark');
+              const blocoEdicaoObs = documentoClonado.querySelector('#area-relatorio .no-print');
+              if (blocoEdicaoObs) blocoEdicaoObs.style.display = 'none';
+            }
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        })
+          .from(document.getElementById('area-relatorio'))
+          .save();
 
-      const nomeArquivo = `despacho-193-${(protocoloAtual || Date.now()).replace(/[^\w-]/g, '_')}.pdf`;
-
-      html2pdf().set({
-        margin: 10,
-        filename: nomeArquivo,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, backgroundColor: '#ffffff' },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      })
-      .from(document.getElementById('area-relatorio'))
-      .save()
-      .then(() => { restaurar(); mostrarToast('PDF gerado.', 'sucesso'); })
-      .catch(() => { restaurar(); mostrarToast('Erro ao gerar PDF.', 'erro'); });
+        mostrarToast('PDF gerado.', 'sucesso');
+      } catch (error) {
+        console.error('Erro ao gerar PDF da ficha:', error);
+        mostrarToast('Erro ao gerar PDF.', 'erro');
+      }
     }
 
     function limparChamado() {
@@ -1205,7 +1192,8 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
 
     async function excluirSintoma(id) {
       if (!confirm('Excluir este sintoma? Os vínculos com diagnósticos também serão removidos.')) return;
-      await supabaseClient.from('sintomas').delete().eq('id', id);
+      const { error } = await supabaseClient.from('sintomas').delete().eq('id', id);
+      if (error) return mostrarToast('Erro ao excluir sintoma: ' + error.message, 'erro');
       mostrarToast('Sintoma excluído.', 'sucesso');
       await sincronizarComSupabase(false);
     }
@@ -1256,7 +1244,11 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
       if (idEdicao) {
         const { error } = await supabaseClient.from('diagnosticos').update({ titulo, criticidade, descricao, dicas_solicitante }).eq('id', idEdicao);
         if (error) return mostrarToast('Erro: ' + error.message, 'erro');
-        await supabaseClient.from('diagnostico_sintomas').delete().eq('diagnostico_id', idEdicao);
+        const { error: deleteRelationsError } = await supabaseClient
+          .from('diagnostico_sintomas')
+          .delete()
+          .eq('diagnostico_id', idEdicao);
+        if (deleteRelationsError) return mostrarToast('Erro ao atualizar vínculos: ' + deleteRelationsError.message, 'erro');
       } else {
         const { data, error } = await supabaseClient.from('diagnosticos').insert([{ titulo, criticidade, descricao, dicas_solicitante }]).select().single();
         if (error) return mostrarToast('Erro: ' + error.message, 'erro');
@@ -1274,7 +1266,8 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
 
     async function excluirDiagnostico(id) {
       if (!confirm('Excluir este diagnóstico?')) return;
-      await supabaseClient.from('diagnosticos').delete().eq('id', id);
+      const { error } = await supabaseClient.from('diagnosticos').delete().eq('id', id);
+      if (error) return mostrarToast('Erro ao excluir diagnóstico: ' + error.message, 'erro');
       mostrarToast('Diagnóstico excluído.', 'sucesso');
       await sincronizarComSupabase(false);
     }
@@ -1755,6 +1748,7 @@ async function onInputCidadeEstruturada() {
     if (inpBai) { inpBai.value = ''; inpBai.disabled = true; }
     if (dlBai) dlBai.innerHTML = '';
     if (badge) badge.textContent = '';
+    ultimoBairroContabilizadoId = null;
     limparRuaNumero();
     return;
   }
@@ -1801,7 +1795,17 @@ async function onInputBairroEstruturado() {
 
   if (!cidade) { limparRuaNumero(); return; }
   const bairro = resolverBairroPorNome(inpBai.value, cidade.id);
-  if (!bairro) { limparRuaNumero(); return; }
+  if (!bairro) {
+    ultimoBairroContabilizadoId = null;
+    limparRuaNumero();
+    return;
+  }
+
+  if (ultimoBairroContabilizadoId !== bairro.id) {
+    usoBairrosLocais[bairro.nome] = (usoBairrosLocais[bairro.nome] || 0) + 1;
+    localStorage.setItem('cobom_bairros_uso', JSON.stringify(usoBairrosLocais));
+    ultimoBairroContabilizadoId = bairro.id;
+  }
 
   inpRua.disabled = false;
   inpNum.disabled = false;
@@ -1845,11 +1849,6 @@ function onInputRuaEstruturada() {
 
   if (!cidade && !bairro) return;
 
-  if (bairro) {
-    usoBairrosLocais[bairro.nome] = (usoBairrosLocais[bairro.nome] || 0) + 1;
-    localStorage.setItem('cobom_bairros_uso', JSON.stringify(usoBairrosLocais));
-  }
-
   // ★ Canonicaliza a rua: se "sao joao" casar com "São João" no cache, usa a versão correta
   let ruaFinal = rua;
   if (bairro && cacheRuas[bairro.id] && rua) {
@@ -1877,6 +1876,7 @@ function limparEnderecoEstruturado() {
   if (inpCid) inpCid.value = '';
   if (inpBai) { inpBai.value = ''; inpBai.disabled = true; }
   if (badge) badge.textContent = '';
+  ultimoBairroContabilizadoId = null;
   limparRuaNumero();
 }
 
@@ -2114,6 +2114,13 @@ function resolverCidadePorNome(texto) {
 }
 
 // ---------- AUTOCOMPLETE CUSTOMIZADO (filtro por normalização) ----------
+function opcoesPerguntasAutocomplete() {
+  return bancoPerguntas.map(p => ({
+    texto: p.texto,
+    label: `${p.red_flag ? '🚨 ' : ''}${p.texto}`
+  }));
+}
+
 const providersAutocomplete = {
   'est-cidade': () => bancoCidades.map(c => ({ texto: `${c.nome} - ${c.uf}` })),
   'est-bairro': () => {
@@ -2149,7 +2156,8 @@ const providersAutocomplete = {
       .map(b => ({ texto: b.nome }));
   },
   'vinc-sintoma': () => bancoSintomas.map(s => ({ texto: s.nome, label: `${s.red_flag ? '🚨 ' : ''}[${s.categoria}] ${s.nome}` })),
-  'vinc-pergunta': () => bancoPerguntas.map(p => ({ texto: p.texto, label: `${p.red_flag ? '🚨 ' : ''}${p.texto}` })),
+  'cad-pergunta-texto': opcoesPerguntasAutocomplete,
+  'vinc-pergunta': opcoesPerguntasAutocomplete,
 };
 
 function criarAutocomplete(inputId) {
@@ -2264,7 +2272,7 @@ function inicializarAutocompletes() {
   Object.keys(providersAutocomplete).forEach(criarAutocomplete);
 }
 
-function aplicarCidadePadrao() {
+async function aplicarCidadePadrao() {
   const inp = document.getElementById('est-cidade');
   if (!inp) return;
   if (!inp.value) {
@@ -2276,7 +2284,7 @@ function aplicarCidadePadrao() {
       inp.value = `${bancoCidades[0].nome} - ${bancoCidades[0].uf}`;
     }
   }
-  if (inp.value) onInputCidadeEstruturada();
+  if (inp.value) await onInputCidadeEstruturada();
 }
 
 function aplicarCidadePadraoAdmin() {
