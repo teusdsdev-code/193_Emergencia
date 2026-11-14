@@ -321,6 +321,7 @@ function normalizarTexto(s) {
       bancoSintomas = JSON.parse(localStorage.getItem('cobom_cache_sintomas') || '[]');
       bancoDiagnosticos = JSON.parse(localStorage.getItem('cobom_cache_diagnosticos') || '[]');
       bancoViaturas = JSON.parse(localStorage.getItem('cobom_cache_viaturas') || '[]');
+      bancoGuarnicoes = JSON.parse(localStorage.getItem('cobom_cache_guarnicoes') || '[]');
       document.getElementById('badge-total-banco').innerText = bancoSintomas.length;
       const infoCache = document.getElementById('info-cache');
       if (infoCache) infoCache.innerText = motivo || 'Cache local';
@@ -728,9 +729,9 @@ function verificarRuaDuplicada(nome, bairroId) {
 
     async function excluirViatura(id) {
       if (!confirm('Excluir esta viatura?')) return;
-      await supabaseClient.from('viaturas').delete().eq('id', id);
-      delete guarnicoesMemoria[id];
-      salvarGuarnicoesNaMemoria();
+      const { error } = await supabaseClient.from('viaturas').delete().eq('id', id);
+      if (error) return mostrarToast('Erro ao excluir viatura: ' + error.message, 'erro');
+      mostrarToast('Viatura excluída.', 'sucesso');
       await sincronizarComSupabase(false);
     }
 
@@ -789,44 +790,95 @@ function verificarRuaDuplicada(nome, bairroId) {
 
     function renderizarViaturasEGuarnicao() {
       const container = document.getElementById('lista-cards-viaturas');
-      if (bancoViaturas.length === 0) { /* ... */ return; }
+      if (!container) return;
+      if (bancoViaturas.length === 0) {
+        container.innerHTML = '<p class="text-sm text-slate-400 italic md:col-span-2">Nenhuma viatura cadastrada.</p>';
+        return;
+      }
 
       container.innerHTML = bancoViaturas.map(vtr => {
-        // MUDOU AQUI: Filtra do banco global
-        const militares = bancoGuarnicoes.filter(g => g.viatura_id === vtr.id); 
+        const militares = bancoGuarnicoes.filter(g => g.viatura_id === vtr.id);
         
         return `
           <div class="border dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-900/60 flex flex-col justify-between space-y-3">
-            <!-- ... -->
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h3 class="font-black text-sm">${vtr.unidade} — ${vtr.prefixo}</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">${vtr.tipo || ''}</p>
+              </div>
+              <button type="button" onclick="excluirViatura('${vtr.id}')"
+                class="text-xs font-bold text-red-600 dark:text-red-400 hover:underline">Excluir</button>
+            </div>
+
               <div class="mt-3 space-y-1.5">
-                <span class="text-[11px] font-bold uppercase text-slate-400">Guarnição (${militares.length}):</span>
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[11px] font-bold uppercase text-slate-400">Guarnição (${militares.length}):</span>
+                  ${militares.length > 0
+                    ? `<button type="button" onclick="limparGuarnicaoDaViatura('${vtr.id}')"
+                        class="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline">Limpar</button>`
+                    : ''}
+                </div>
                 ${militares.length === 0
                   ? `<p class="text-xs text-slate-400 italic">Sem militares.</p>`
                   : `<ul class="space-y-1">
                       ${militares.map(m => `
                         <li class="flex justify-between items-center bg-white dark:bg-slate-800 px-2.5 py-1.5 rounded border dark:border-slate-700 text-xs">
                           <span><strong>${m.nome}</strong> <span class="text-slate-500">${formatarTel(m.telefone)}</span></span>
-                          <button onclick="removerMilitarIndividual('${vtr.id}', '${m.id}')" class="text-red-500 font-black px-1">✕</button>
+                          <button type="button" onclick="removerMilitarIndividual('${vtr.id}', '${m.id}')"
+                            class="text-red-500 font-black px-1" title="Remover militar">✕</button>
                         </li>
                       `).join('')}
                     </ul>`
                 }
               </div>
-            <!-- ... -->
+
+            <form onsubmit="adicionarMilitarNaViatura(event, '${vtr.id}')" class="mt-2 space-y-2 border-t dark:border-slate-700 pt-3">
+              <input id="mil-nome-${vtr.id}" type="text" required placeholder="Nome do militar"
+                class="w-full border dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg p-2 text-xs">
+              <div class="flex gap-2">
+                <input id="mil-tel-${vtr.id}" type="tel" required placeholder="WhatsApp com DDD"
+                  class="min-w-0 flex-1 border dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg p-2 text-xs">
+                <button type="submit" class="shrink-0 bg-red-700 hover:bg-red-800 text-white font-bold px-3 rounded-lg text-xs">
+                  + Escalar
+                </button>
+              </div>
+            </form>
           </div>
         `;
       }).join('');
     }
 
     function renderizarSelecaoViaturasTriagem() {
-      // ... (dentro do map de viaturas, mude a leitura) ...
+      const container = document.getElementById('selecao-viaturas-triagem');
+      if (!container) return;
+      if (bancoViaturas.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400 italic sm:col-span-2">Nenhuma viatura cadastrada.</p>';
+        return;
+      }
+
       container.innerHTML = bancoViaturas.map(vtr => {
         const marcada = viaturasEmpenhadasIds.includes(vtr.id);
-        // MUDOU AQUI: Filtra do banco global
         const militares = bancoGuarnicoes.filter(g => g.viatura_id === vtr.id);
         const nomesMilitares = militares.map(m => m.nome).join(', ') || 'Sem guarnição definida';
         
-        return ` <!-- (mantenha o HTML igual) --> `;
+        return `
+          <button type="button" onclick="alternarViaturaEmpenhada('${vtr.id}')"
+            aria-pressed="${marcada}"
+            class="w-full text-left border rounded-lg p-3 transition ${
+              marcada
+                ? 'border-red-500 bg-red-50 dark:bg-red-950/40 ring-2 ring-red-500/30'
+                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 hover:border-red-300 dark:hover:border-red-700'
+            }">
+            <span class="flex items-center justify-between gap-2">
+              <span class="font-black">${vtr.unidade} ${vtr.prefixo}</span>
+              <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                marcada ? 'bg-red-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+              }">${marcada ? 'Empenhada' : 'Selecionar'}</span>
+            </span>
+            <span class="block mt-1 text-[11px] text-slate-500 dark:text-slate-400">${vtr.tipo || ''}</span>
+            <span class="block mt-1 text-[11px] text-slate-600 dark:text-slate-300">${nomesMilitares}</span>
+          </button>
+        `;
       }).join('');
     }
 
@@ -874,7 +926,7 @@ function verificarRuaDuplicada(nome, bairroId) {
       const vtrsTxt = viaturasEmpenhadasIds.map(id => {
         const v = bancoViaturas.find(b => b.id === id);
         if (!v) return '';
-        const mils = (guarnicoesMemoria[id] || []).map(m => m.nome).join(', ');
+        const mils = bancoGuarnicoes.filter(m => m.viatura_id === id).map(m => m.nome).join(', ');
         return `  - [${v.unidade}] *${v.prefixo}* (${mils || 'S/ efetivo'})`;
       }).join('\n');
 
@@ -946,7 +998,7 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
         divRelViaturas.innerHTML = viaturasEmpenhadasIds.map(id => {
           const v = bancoViaturas.find(b => b.id === id);
           if (!v) return '';
-          const mils = guarnicoesMemoria[id] || [];
+          const mils = bancoGuarnicoes.filter(m => m.viatura_id === id);
           mils.forEach(m => todosMilitaresEmpenhados.push({ ...m, prefixo: v.prefixo }));
           return `<div>🚒 [${v.unidade}] ${v.prefixo} — <span class="font-normal text-slate-600 dark:text-slate-300">${mils.map(m => m.nome).join(', ') || 'Sem guarnição'}</span></div>`;
         }).join('');
@@ -954,7 +1006,7 @@ ${vtrsTxt || '  - A definir'}${obs ? `\n\n📝 *OBS:* ${obs}` : ''}`;
         if (todosMilitaresEmpenhados.length > 0) {
           painelZap.classList.remove('hidden');
           botoesZap.innerHTML = todosMilitaresEmpenhados.map(m => `
-            <button onclick="enviarWhatsAppMilitar('${m.tel}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow flex items-center space-x-1.5">
+            <button onclick="enviarWhatsAppMilitar('${m.telefone}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow flex items-center space-x-1.5">
               <span>📲</span><span>${m.nome} (${m.prefixo})</span>
             </button>
           `).join('');
