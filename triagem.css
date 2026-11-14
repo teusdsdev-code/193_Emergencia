@@ -2,6 +2,70 @@
    Estilos específicos da Triagem (Impressão e Toast)
    ============================================================ */
 
+html body.font-sans {
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+header.no-print {
+  background-image: linear-gradient(115deg, #b30000, #8f0000);
+}
+
+.no-print > div:first-child {
+  background: transparent;
+  border-color: rgba(255, 255, 255, .18);
+}
+
+.no-print > div:first-child nav a {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.no-print > div:first-child nav a[aria-current="page"] {
+  color: #fff;
+  background: rgba(255, 255, 255, .16);
+  border-color: rgba(255, 255, 255, .28);
+  box-shadow: none;
+}
+
+.no-print > div:first-child nav a:not([aria-current="page"]) {
+  color: rgba(255, 255, 255, .82);
+}
+
+.no-print > div:first-child nav a:not([aria-current="page"]):hover {
+  color: #fff;
+  background: rgba(255, 255, 255, .1);
+}
+
+.no-print > div:nth-child(2) > div:last-child button {
+  min-height: 40px;
+  font-size: 13px;
+}
+
+main label {
+  font-size: 13px !important;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible {
+  outline: 3px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @media print {
   html, body { background: #fff !important; }
   body * { visibility: hidden; }
