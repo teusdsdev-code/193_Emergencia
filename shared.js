@@ -15,7 +15,7 @@
       btn.title = dark ? 'Mudar para modo claro' : 'Mudar para modo escuro';
     }
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#0f172a' : '#b30000');
+    if (meta) meta.setAttribute('content', dark ? '#0a0908' : '#b30000');
   };
 
   window.toggleThemeAc4 = function () {
@@ -140,4 +140,3 @@ document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   );
 }, { once: true });
-
