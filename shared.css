@@ -406,7 +406,7 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
 label {
   font-weight: 550;
   margin-bottom: 4px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-soft);
 }
 label .req { color: var(--fire-500); }
@@ -444,6 +444,11 @@ button:hover {
 }
 button:active { transform: translateY(0) scale(0.99); box-shadow: var(--shadow-xs); }
 button:disabled { cursor: not-allowed; opacity: 0.5; transform: none !important; box-shadow: none; }
+button:focus-visible, a:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
 
 /* Opt-in: full-width */
 .btn, .button-group > button, .btn-group > button { width: 100%; }
@@ -982,6 +987,15 @@ html:not(.dark) .bg-slate-200 { background-color: var(--stone-200) !important; }
   #candidatesSection h2,
   form#reportForm > section.card h3 {
     color: #b91c1c !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
