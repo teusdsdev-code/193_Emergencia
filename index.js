@@ -533,9 +533,13 @@ function restoreDraft() {
 
 function clearForm(confirmFirst) {
   if (confirmFirst && !confirm('Limpar todos os dados do formulário? Esta ação não pode ser desfeita.')) return;
+  clearTimeout(saveTimer);
+  saveTimer = null;
   document.getElementById('reportForm').reset();
   document.getElementById('testsContainer').innerHTML = '';
   for (let i = 0; i < 3; i++) addTest();
+  clearTimeout(saveTimer);
+  saveTimer = null;
   localStorage.removeItem(STORAGE_KEY);
   const s = document.getElementById('autosaveStatus');
   if (s) { s.textContent = ''; s.className = 'status'; }
