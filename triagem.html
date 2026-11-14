@@ -2,40 +2,40 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b30000">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <title>COB 193 - Triagem e Despacho Rápido</title>
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E">
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23b30000'/%3E%3Ctext x='256' y='360' font-family='Arial,sans-serif' font-size='240' font-weight='bold' fill='white' text-anchor='middle'%3E193%3C/text%3E%3C/svg%3E">
 
-  <!-- CSS EXTERNO DA TRIAGEM -->
-  <link rel="stylesheet" href="./triagem.css">
-
   <!-- SCRIPT DE TEMA (ANTES DO PAINT PARA NÃO PISCAR) -->
   <script>
     (function(){
+      let prefersDark = false;
       try {
+        prefersDark = typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches;
         const saved = localStorage.getItem('cbmgo193.theme');
-        if (saved === 'light') {
-          /* usuário escolheu claro */
-        } else if (saved === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
+        if (saved === 'dark' || (!saved && prefersDark)) {
           document.documentElement.classList.add('dark');
         }
       } catch(_) {
-        document.documentElement.classList.add('dark');
+        if (prefersDark) document.documentElement.classList.add('dark');
       }
     })();
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' }</script>
+  <link rel="stylesheet" href="./triagem.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
-<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen pb-20 lg:pb-8 font-sans transition-colors duration-200 select-none">
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen pb-20 lg:pb-8 font-sans transition-colors duration-200">
 
   <header class="bg-red-700 dark:bg-red-900 text-white shadow-lg sticky top-0 z-40 no-print">
     <div class="bg-red-900 dark:bg-red-950 border-b border-red-800 dark:border-red-900">
@@ -129,7 +129,7 @@
           <div class="flex flex-wrap justify-between items-center border-b dark:border-slate-700 pb-2 mb-3 gap-2">
             <div>
               <h2 class="text-sm md:text-base font-black text-purple-600 dark:text-purple-400 uppercase">🔍 2. Perguntas de Triagem</h2>
-              <p class="text-[11px] text-slate-400">Baseadas nos sintomas marcados. Responda para derivar novos sintomas automaticamente.</p>
+              <p class="text-[11px] text-slate-400">Checklist de apoio associado aos sintomas. Marque cada pergunta após realizá-la.</p>
             </div>
             <span id="badge-perguntas-pendentes" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 hidden"></span>
           </div>
@@ -495,8 +495,7 @@
         <input type="hidden" id="edit-pergunta-id" value="">
         <div>
           <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Texto da Pergunta</label>
-          <input type="text" id="cad-pergunta-texto" required placeholder="Ex: A vítima está respirando?" list="datalist-perguntas-existentes" autocomplete="off" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
-          <datalist id="datalist-perguntas-existentes"></datalist>
+          <input type="text" id="cad-pergunta-texto" required placeholder="Ex: A vítima está respirando?" autocomplete="off" class="w-full border dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg p-2.5 text-sm">
         </div>
         <div>
           <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Dica para o Operador</label>
